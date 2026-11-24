@@ -1,12 +1,12 @@
 // 01. CACHE-KONFIGURATION
 
-const CACHE_NAME = "arbeitszeit-v4";
+const CACHE_NAME = "arbeitszeit-v5";
 
 const APP_FILES = [
     "./",
     "./index.html",
-    "./style.css?v=4",
-    "./app.js?v=4",
+    "./style.css?v=5",
+    "./app.js?v=5",
     "./config.js",
     "./manifest.json",
     "./icons/icon-192.png",
