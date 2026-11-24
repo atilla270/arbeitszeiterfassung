@@ -3371,3 +3371,80 @@ form > .button.primary {
     }
 
 }
+
+/* ==========================================
+   40. PASSWORT SICHTBARKEIT
+   ========================================== */
+
+.password-field {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+}
+
+.password-field > input:not([type="checkbox"]) {
+    padding-right: 54px;
+}
+
+.password-toggle {
+    position: absolute;
+
+    top: 50%;
+    right: 3px;
+
+    transform: translateY(-50%);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 44px;
+    height: 44px;
+
+    padding: 0;
+
+    background: transparent;
+    color: var(--text-secondary);
+
+    border: none;
+    border-radius: 9px;
+
+    cursor: pointer;
+
+    transition:
+        color var(--transition),
+        background var(--transition);
+}
+
+.password-toggle svg {
+    display: block;
+
+    width: 21px;
+    height: 21px;
+
+    pointer-events: none;
+}
+
+.password-toggle[aria-pressed="true"] {
+    color: var(--primary);
+}
+
+.password-toggle:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: -3px;
+}
+
+@media (hover: hover) {
+
+    .password-toggle:not(:disabled):hover {
+        background: var(--primary-soft);
+        color: var(--primary);
+    }
+
+}
+
+/* BROWSEREIGENES AUGE IN MICROSOFT EDGE */
+
+.password-field input::-ms-reveal {
+    display: none;
+}
