@@ -3,7 +3,7 @@
 // ==========================================
 
 import { createClient } from
-    "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+    "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/+esm";
 
 import {
     SUPABASE_URL,
@@ -28,7 +28,11 @@ const defaults = {
     work_days: [5, 6],
     default_break_minutes: 0,
     theme: "system",
-    glass_style: "solid"
+    glass_style: "solid",
+    glass_intensity: 50,
+    first_name: "",
+    last_name: "",
+    avatar_path: null
 };
 
 let currentUser = null;
@@ -46,6 +50,17 @@ let settingsDirty = false;
 let busy = false;
 let refreshPromise = null;
 let pendingGlassStyle = null;
+let pendingGlassIntensity = null;
+let profileDirty = false;
+let accountEpoch = 0;
+let loginBusy = false;
+let passkeyBusy = false;
+let passwordBusy = false;
+let avatarObjectUrl = null;
+let avatarLoadedPath = null;
+let avatarRequest = null;
+let passkeyListRequest = null;
+let entryFormBaseline = null;
 
 let messageTimeout;
 
@@ -285,108 +300,109 @@ function updateSync(text, type = "") {
 // 04. ANMELDUNG
 // ==========================================
 
-$("login-form").addEventListener(
-    "submit",
-    async event => {
+function supportsPasskeys() {
+    return window.isSecureContext &&
+        typeof window.PublicKeyCredential === "function" &&
+        Boolean(navigator.credentials) &&
+        typeof supabase.auth.signInWithPasskey === "function" &&
+        typeof supabase.auth.registerPasskey === "function" &&
+        typeof supabase.auth.passkey?.list === "function";
+}
 
-        event.preventDefault();
+function setLoginBusy(value) {
+    loginBusy = value;
+    const button = $("login-form").querySelector('button[type="submit"]');
+    button.disabled = value;
+    button.textContent = value ? "Anmeldung läuft ..." : "Anmelden";
+    $("passkey-login-button").disabled = value || !supportsPasskeys();
+}
 
-        const button = event.currentTarget
-            .querySelector('button[type="submit"]');
-
-        button.disabled = true;
-        button.textContent = "Anmeldung läuft ...";
-
-        loginMessage("");
-
-        try {
-
-            await result(
-                supabase.auth.signInWithPassword({
-                    email: $("login-email").value.trim(),
-                    password: $("login-password").value
-                })
-            );
-
-            $("login-password").value = "";
-
-        } catch (error) {
-
-            loginMessage(
-                "Anmeldung fehlgeschlagen. " +
-                error.message
-            );
-
-        } finally {
-
-            button.disabled = false;
-            button.textContent = "Anmelden";
-
-        }
-
+$("login-form").addEventListener("submit", async event => {
+    event.preventDefault();
+    if (loginBusy) return;
+    setLoginBusy(true);
+    loginMessage("");
+    try {
+        await result(supabase.auth.signInWithPassword({
+            email: $("login-email").value.trim(),
+            password: $("login-password").value
+        }));
+        $("login-password").value = "";
+    } catch (error) {
+        loginMessage("Anmeldung fehlgeschlagen. " + error.message);
+    } finally {
+        setLoginBusy(false);
     }
-);
+});
+
+$("passkey-login-button").addEventListener("click", async () => {
+    if (loginBusy || !supportsPasskeys()) return;
+    setLoginBusy(true);
+    loginMessage("");
+    try {
+        await result(supabase.auth.signInWithPasskey());
+        $("login-password").value = "";
+    } catch (error) {
+        loginMessage("Passkey-Anmeldung fehlgeschlagen. " +
+            "Du kannst dich weiterhin mit deinem Passwort anmelden. " + error.message);
+    } finally {
+        setLoginBusy(false);
+    }
+});
+
+function isActiveAccount(userId, epoch) {
+    return Boolean(userId) && currentUser?.id === userId && accountEpoch === epoch;
+}
 
 async function activateUser(user) {
-
-    if (!user) {
-
-        currentUser = null;
-
-        entries = [];
-        payments = [];
-        settings = { ...defaults };
-
-        selectedDay = null;
-        settingsDirty = false;
-        applyGlassStyle(defaults.glass_style);
-
-        $("login-screen").hidden = false;
-        $("app").hidden = true;
-
-        $("login-password").value = "";
-        $("account-email").textContent = "";
-        $("app-message").textContent = "";
-
-        $("recent-entries").replaceChildren();
-        $("entries-list").replaceChildren();
-        $("payments-list").replaceChildren();
-        $("calendar-grid").replaceChildren();
-        $("calendar-day-details").replaceChildren();
-
-        $("monthly-salary").textContent = "0,00 €";
-        $("yearly-salary").textContent = "0,00 €";
-
+    if (user && currentUser?.id === user.id) {
+        currentUser = user;
+        $("account-email").textContent = user.email || "";
         return;
-
     }
 
-    if (currentUser?.id === user.id) return;
-
-    currentUser = user;
-
+    // Bei jedem Kontowechsel alte Daten und laufende Anzeigefunktionen invalidieren.
+    accountEpoch++;
+    const epoch = accountEpoch;
+    currentUser = user || null;
+    refreshPromise = null;
     entries = [];
     payments = [];
     settings = { ...defaults };
-    settingsDirty = false;
     selectedDay = null;
+    settingsDirty = false;
+    pendingGlassStyle = null;
+    pendingGlassIntensity = null;
+    profileDirty = false;
+    dashboardMonth = new Date();
+    calendarMonth = new Date();
+    statisticsYear = new Date().getFullYear();
 
-    $("account-email").textContent = user.email || "";
-
+    $("app").hidden = true;
+    $("floating-add-button").hidden = true;
+    $("login-password").value = "";
+    if (!user) $("login-email").value = "";
+    $("app-message").textContent = "";
+    clearTimeout(messageTimeout);
+    resetAccountUI();
+    $("account-email").textContent = user?.email || "";
+    applyTheme(defaults.theme);
+    applyGlassStyle(defaults.glass_style);
+    applyGlassIntensity(defaults.glass_intensity);
     resetEntryForm();
     renderAll();
+    updateSync(user ? "Synchronisierung läuft ..." : "Nicht verbunden");
 
-    $("login-screen").hidden = true;
+    $("login-screen").hidden = Boolean(user);
+    if (!user) return;
+
     $("app").hidden = false;
-
+    $("floating-add-button").hidden = false;
     showPage("dashboard");
-
-    await refreshData();
-
-    if (currentUser?.id === user.id) {
+    await refreshData(true);
+    if (isActiveAccount(user.id, epoch) && !entryFormHasChanges()) {
         resetEntryForm();
     }
-
 }
 
 supabase.auth.onAuthStateChange(
@@ -408,9 +424,11 @@ $("logout-button").addEventListener(
     "click",
     async () => {
 
-        if (!confirm("Möchtest du dich abmelden?")) {
+        if (busy || passkeyBusy || passwordBusy) {
+            showMessage("Bitte den laufenden Vorgang abschließen.", "error");
             return;
         }
+        if (!confirm("Möchtest du dich abmelden?")) return;
 
         try {
 
@@ -480,8 +498,9 @@ async function refreshData(force = false) {
     }
 
     const userId = currentUser.id;
+    const epoch = accountEpoch;
 
-    refreshPromise = (async () => {
+    const request = Promise.resolve().then(async () => {
 
         try {
 
@@ -507,7 +526,7 @@ async function refreshData(force = false) {
 
             ]);
 
-            if (currentUser?.id !== userId) {
+            if (!isActiveAccount(userId, epoch)) {
                 return false;
             }
 
@@ -545,7 +564,7 @@ async function refreshData(force = false) {
 
         } catch (error) {
 
-            if (currentUser?.id === userId) {
+            if (isActiveAccount(userId, epoch)) {
 
                 updateSync(
                     "Synchronisierung fehlgeschlagen",
@@ -560,13 +579,14 @@ async function refreshData(force = false) {
 
         } finally {
 
-            refreshPromise = null;
+            if (refreshPromise === request) refreshPromise = null;
 
         }
 
-    })();
+    });
 
-    return refreshPromise;
+    refreshPromise = request;
+    return request;
 
 }
 
@@ -588,6 +608,7 @@ async function saveOperation(operation, message) {
     busy = true;
 
     const userId = currentUser.id;
+    const epoch = accountEpoch;
 
     try {
 
@@ -595,30 +616,24 @@ async function saveOperation(operation, message) {
             await refreshPromise;
         }
 
-        if (currentUser?.id !== userId) {
+        if (!isActiveAccount(userId, epoch)) {
             throw new Error("Benutzer nicht mehr angemeldet.");
         }
 
         await operation(userId);
 
-        if (currentUser?.id === userId) {
-
-            const synchronized = await refreshData(true);
-
-            showMessage(
-                synchronized
-                    ? message
-                    : "Gespeichert, aber Datenabgleich fehlgeschlagen.",
-                synchronized ? "success" : "error"
-            );
-
-        }
-
+        if (!isActiveAccount(userId, epoch)) return false;
+        const synchronized = await refreshData(true);
+        if (!isActiveAccount(userId, epoch)) return false;
+        showMessage(
+            synchronized ? message : "Gespeichert, aber Datenabgleich fehlgeschlagen.",
+            synchronized ? "success" : "error"
+        );
         return true;
 
     } catch (error) {
 
-        showMessage(error.message, "error");
+        if (isActiveAccount(userId, epoch)) showMessage(error.message, "error");
 
         return false;
 
@@ -710,17 +725,32 @@ document.querySelectorAll(".nav-item")
 
     });
 
-$("quick-add-button").addEventListener(
-    "click",
-    () => {
+function entryFormSnapshot() {
+    return JSON.stringify([
+        $("entry-id").value, $("work-date").value,
+        $("start-time").value, $("end-time").value,
+        $("overnight").checked, $("break-minutes").value,
+        $("entry-hourly-rate").value, $("entry-notes").value
+    ]);
+}
 
-        resetEntryForm();
+function entryFormHasChanges() {
+    return entryFormBaseline !== null && entryFormSnapshot() !== entryFormBaseline;
+}
 
-        showPage("entries");
+function confirmEntryDiscard() {
+    return !entryFormHasChanges() || confirm("Ungespeicherte Arbeitszeit verwerfen?");
+}
 
-    }
-);
+function openNewEntry(date = dateString(new Date())) {
+    if (!currentUser || busy || !confirmEntryDiscard()) return;
+    resetEntryForm(date);
+    showPage("entries");
+    $("work-date").focus({ preventScroll: true });
+}
 
+$("quick-add-button").addEventListener("click", () => openNewEntry());
+$("floating-add-button").addEventListener("click", () => openNewEntry());
 
 // ==========================================
 // 07. MONATSÜBERSICHT
@@ -831,6 +861,7 @@ function resetEntryForm(date = dateString(new Date())) {
     $("cancel-edit").hidden = true;
 
     updateCalculationPreview();
+    entryFormBaseline = entryFormSnapshot();
 
 }
 
@@ -1048,7 +1079,7 @@ function editEntry(id) {
         item => item.id === id
     );
 
-    if (!entry) return;
+    if (!entry || busy || !confirmEntryDiscard()) return;
 
     $("entry-id").value = entry.id;
 
@@ -1079,6 +1110,7 @@ function editEntry(id) {
     $("cancel-edit").hidden = false;
 
     updateCalculationPreview();
+    entryFormBaseline = entryFormSnapshot();
 
     showPage("entries");
 
@@ -1118,7 +1150,7 @@ async function deleteEntry(id) {
 
 $("cancel-edit").addEventListener(
     "click",
-    () => resetEntryForm()
+    () => { if (!busy && confirmEntryDiscard()) resetEntryForm(); }
 );
 
 
@@ -1422,13 +1454,7 @@ function renderCalendarDetails() {
 
             "button primary",
 
-            () => {
-
-                resetEntryForm(selectedDay);
-
-                showPage("entries");
-
-            }
+            () => openNewEntry(selectedDay)
 
         )
 
@@ -1848,16 +1874,12 @@ function applyTheme(theme) {
 }
 
 function applyGlassStyle(value) {
-
     const glassStyle = value === "glass" ? "glass" : "solid";
-
     document.documentElement.dataset.glassStyle = glassStyle;
-
-    document.querySelectorAll('input[name="glass-style"]')
-        .forEach(radio => {
-            radio.checked = radio.value === glassStyle;
-        });
-
+    document.querySelectorAll('input[name="glass-style"]').forEach(radio => {
+        radio.checked = radio.value === glassStyle;
+    });
+    updateGlassIntensityAvailability();
 }
 
 function renderSettings() {
@@ -1868,6 +1890,9 @@ function renderSettings() {
             : settings.glass_style
     );
 
+    applyGlassIntensity(pendingGlassIntensity?.userId === currentUser?.id && pendingGlassIntensity
+        ? pendingGlassIntensity.value : settings.glass_intensity);
+    renderAccountProfile();
     if (settingsDirty) return;
 
     $("settings-hourly-rate").value =
@@ -2031,7 +2056,7 @@ document.querySelectorAll('input[name="glass-style"]')
                 }
 
             } finally {
-                pendingGlassStyle = null;
+                if (pendingGlassStyle?.userId === userId) pendingGlassStyle = null;
                 options.forEach(option => option.disabled = false);
                 applyGlassStyle(settings.glass_style);
             }
@@ -2132,7 +2157,7 @@ $("settings-form").addEventListener(
 
             renderAll();
 
-            if (!$("entry-id").value) {
+            if (!$("entry-id").value && !entryFormHasChanges()) {
 
                 $("entry-hourly-rate").value =
                     settings.hourly_rate;
@@ -2141,6 +2166,7 @@ $("settings-form").addEventListener(
                     settings.default_break_minutes;
 
                 updateCalculationPreview();
+                entryFormBaseline = entryFormSnapshot();
 
             }
 
@@ -2494,9 +2520,12 @@ $("export-backup").addEventListener(
     async () => {
 
         if (!currentUser) return;
+        const userId = currentUser.id;
+        const epoch = accountEpoch;
 
         const synchronized = await refreshData();
 
+        if (!isActiveAccount(userId, epoch)) return;
         if (!synchronized) {
 
             showMessage(
@@ -2517,7 +2546,9 @@ $("export-backup").addEventListener(
 
             user_id: currentUser.id,
 
-            settings,
+            // Profilbild-Datei und Zugangsdaten sind nicht Teil des JSON-Backups.
+            settings: Object.fromEntries(Object.entries(settings)
+                .filter(([key]) => key !== "avatar_path")),
 
             entries,
 
@@ -2552,6 +2583,8 @@ $("backup-file").addEventListener(
         const file = event.target.files[0];
 
         if (!file || !currentUser) return;
+        const userId = currentUser.id;
+        const epoch = accountEpoch;
 
         try {
 
@@ -2559,6 +2592,7 @@ $("backup-file").addEventListener(
                 await file.text()
             );
 
+            if (!isActiveAccount(userId, epoch)) return;
             if (
 
                 backup.version !== 1 ||
@@ -2707,7 +2741,10 @@ $("backup-file").addEventListener(
                                     glass_style:
                                         backup.settings.glass_style === "glass"
                                             ? "glass"
-                                            : "solid"
+                                            : "solid",
+                                    glass_intensity: normalizeGlassIntensity(backup.settings.glass_intensity),
+                                    first_name: normalizeProfileName(backup.settings.first_name),
+                                    last_name: normalizeProfileName(backup.settings.last_name)
 
                                 }, {
 
@@ -2802,7 +2839,403 @@ if ("serviceWorker" in navigator) {
 
 
 // ==========================================
-// 20. INITIALISIERUNG
+// 20. GLASINTENSITÄT
+// ==========================================
+
+function normalizeGlassIntensity(value) {
+    if (value === null || value === undefined || value === "") return 50;
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.max(0, Math.min(100, Math.round(number))) : 50;
+}
+
+function applyGlassIntensity(value) {
+    const intensity = normalizeGlassIntensity(value);
+    document.documentElement.style.setProperty("--glass-level", String(intensity / 100));
+    $("glass-intensity").value = String(intensity);
+    $("glass-intensity-value").textContent = `${intensity} %`;
+    updateGlassIntensityAvailability();
+}
+
+function updateGlassIntensityAvailability() {
+    $("glass-intensity").disabled = !currentUser ||
+        document.documentElement.dataset.glassStyle !== "glass" ||
+        Boolean(pendingGlassStyle) || Boolean(pendingGlassIntensity?.saving) ||
+        matchMedia("(prefers-reduced-transparency: reduce)").matches ||
+        !CSS.supports("color", "color-mix(in srgb, white, transparent)");
+}
+
+matchMedia("(prefers-reduced-transparency: reduce)")
+    .addEventListener("change", updateGlassIntensityAvailability);
+
+$("glass-intensity").addEventListener("input", event => {
+    if (!currentUser) return;
+    const value = normalizeGlassIntensity(event.currentTarget.value);
+    pendingGlassIntensity = { userId: currentUser.id, value, saving: false };
+    applyGlassIntensity(value);
+});
+
+$("glass-intensity").addEventListener("change", async event => {
+    const userId = currentUser?.id;
+    const epoch = accountEpoch;
+    const value = normalizeGlassIntensity(event.currentTarget.value);
+    if (!userId || pendingGlassIntensity?.saving) return;
+    if (busy || value === normalizeGlassIntensity(settings.glass_intensity)) {
+        pendingGlassIntensity = null;
+        applyGlassIntensity(settings.glass_intensity);
+        if (busy) showMessage("Bitte den laufenden Vorgang abschließen und erneut versuchen.", "error");
+        return;
+    }
+    const pending = { userId, value, saving: true };
+    pendingGlassIntensity = pending;
+    applyGlassIntensity(value);
+    try {
+        const saved = await saveOperation(id => updateUserSettings(id, { glass_intensity: value }),
+            "Glasintensität gespeichert.");
+        if (saved && isActiveAccount(userId, epoch)) settings.glass_intensity = value;
+    } finally {
+        if (pendingGlassIntensity === pending) pendingGlassIntensity = null;
+        if (isActiveAccount(userId, epoch)) applyGlassIntensity(settings.glass_intensity);
+    }
+});
+
+async function updateUserSettings(userId, fields) {
+    await result(supabase.from("user_settings").upsert(
+        { user_id: userId, ...fields }, { onConflict: "user_id", defaultToNull: false }
+    ));
+}
+
+// ==========================================
+// 21. BENUTZERKONTO UND SICHERHEIT
+// ==========================================
+
+function accountMessage(id, text = "", type = "success") {
+    const element = $(id);
+    element.textContent = text;
+    element.className = type;
+    element.hidden = !text;
+}
+
+function normalizeProfileName(value) {
+    return typeof value === "string" ? value.trim().slice(0, 80) : "";
+}
+
+function ownedAvatarPath(path, userId) {
+    return typeof path === "string" && Boolean(userId) &&
+        path.startsWith(`${userId}/`) && /^[^/]+\/[a-zA-Z0-9_-]+\.jpg$/.test(path);
+}
+
+function clearAvatar() {
+    avatarRequest = null;
+    avatarLoadedPath = null;
+    $("account-avatar-image").hidden = true;
+    $("account-avatar-image").removeAttribute("src");
+    $("account-initials").hidden = false;
+    if (avatarObjectUrl) URL.revokeObjectURL(avatarObjectUrl);
+    avatarObjectUrl = null;
+}
+
+function resetAccountUI() {
+    clearAvatar();
+    profileDirty = false;
+    passkeyListRequest = null;
+    for (const id of ["profile-form", "password-form"]) $(id).reset();
+    for (const id of ["profile-details", "passkey-details", "password-details"]) $(id).open = false;
+    for (const id of ["profile-message", "passkey-message", "password-message"]) accountMessage(id);
+    $("passkey-list").replaceChildren();
+    $("avatar-file").value = "";
+    $("avatar-remove-button").hidden = true;
+    $("account-name").textContent = "Name noch nicht hinterlegt";
+    $("account-initials").textContent = "?";
+    $("passkey-register-button").disabled = !supportsPasskeys() || !currentUser;
+}
+
+function renderAccountProfile() {
+    const first = normalizeProfileName(settings.first_name);
+    const last = normalizeProfileName(settings.last_name);
+    const name = [first, last].filter(Boolean).join(" ");
+    $("account-name").textContent = name || "Name noch nicht hinterlegt";
+    $("account-email").textContent = currentUser?.email || "";
+    $("account-initials").textContent = ([first, last].filter(Boolean)
+        .map(part => Array.from(part)[0]).join("") ||
+        Array.from(currentUser?.email || "?")[0]).toUpperCase();
+    if (!profileDirty) {
+        $("profile-first-name").value = first;
+        $("profile-last-name").value = last;
+    }
+    const userId = currentUser?.id;
+    const path = ownedAvatarPath(settings.avatar_path, userId) ? settings.avatar_path : null;
+    $("avatar-remove-button").hidden = !path;
+    if (!path) {
+        clearAvatar();
+    } else if (avatarLoadedPath !== path && avatarRequest?.path !== path) {
+        loadAvatar(path, userId, accountEpoch);
+    }
+}
+
+async function loadAvatar(path, userId, epoch) {
+    clearAvatar();
+    const request = { path, userId, epoch };
+    avatarRequest = request;
+    try {
+        const blob = await result(supabase.storage.from("avatars").download(path));
+        if (avatarRequest !== request || !isActiveAccount(userId, epoch) || settings.avatar_path !== path) return;
+        avatarObjectUrl = URL.createObjectURL(blob);
+        avatarLoadedPath = path;
+        $("account-avatar-image").src = avatarObjectUrl;
+        $("account-avatar-image").hidden = false;
+        $("account-initials").hidden = true;
+    } catch (error) {
+        if (avatarRequest === request && isActiveAccount(userId, epoch)) {
+            accountMessage("profile-message", "Profilbild konnte nicht geladen werden. " + error.message, "error");
+        }
+    } finally {
+        if (avatarRequest === request) avatarRequest = null;
+    }
+}
+
+$("account-avatar-image").addEventListener("error", () => {
+    clearAvatar();
+});
+
+$("profile-form").addEventListener("input", () => { profileDirty = true; });
+
+$("profile-form").addEventListener("submit", async event => {
+    event.preventDefault();
+    if (!currentUser || busy) return;
+    const userId = currentUser.id;
+    const epoch = accountEpoch;
+    const first_name = normalizeProfileName($("profile-first-name").value);
+    const last_name = normalizeProfileName($("profile-last-name").value);
+    if (!first_name || !last_name) {
+        accountMessage("profile-message", "Bitte Vor- und Nachnamen eingeben.", "error");
+        return;
+    }
+    const form = event.currentTarget;
+    const controls = Array.from(form.elements);
+    controls.forEach(control => control.disabled = true);
+    accountMessage("profile-message");
+    try {
+        const saved = await saveOperation(id => updateUserSettings(id, { first_name, last_name }), "Profil gespeichert.");
+        if (!isActiveAccount(userId, epoch)) return;
+        if (saved) {
+            settings = { ...settings, first_name, last_name };
+            profileDirty = false;
+            renderAccountProfile();
+            $("profile-details").open = false;
+            accountMessage("profile-message", "Profil gespeichert.");
+        } else {
+            accountMessage("profile-message", "Profil konnte nicht gespeichert werden.", "error");
+        }
+    } finally {
+        controls.forEach(control => control.disabled = false);
+    }
+});
+
+async function resizeAvatar(file) {
+    if (file.size > 25 * 1024 * 1024) throw new Error("Bitte ein Bild unter 25 MB auswählen.");
+    if (file.type && !file.type.startsWith("image/")) throw new Error("Bitte eine Bilddatei auswählen.");
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    try {
+        await new Promise((resolve, reject) => {
+            image.onload = resolve;
+            image.onerror = () => reject(new Error("Bildformat nicht lesbar. Bitte JPEG, PNG oder WebP verwenden."));
+            image.src = url;
+        });
+        const size = Math.min(image.naturalWidth, image.naturalHeight);
+        if (!size) throw new Error("Ungültige Bilddatei.");
+        const dimension = Math.min(size, 512);
+        const canvas = document.createElement("canvas");
+        canvas.width = dimension;
+        canvas.height = dimension;
+        const context = canvas.getContext("2d");
+        if (!context) throw new Error("Bildverarbeitung nicht verfügbar.");
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, dimension, dimension);
+        context.drawImage(image, (image.naturalWidth - size) / 2,
+            (image.naturalHeight - size) / 2, size, size, 0, 0, dimension, dimension);
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.85));
+        if (!blob || blob.type !== "image/jpeg" || blob.size > 2 * 1024 * 1024) {
+            throw new Error("Profilbild konnte nicht verkleinert werden.");
+        }
+        return blob;
+    } finally {
+        URL.revokeObjectURL(url);
+    }
+}
+
+$("avatar-upload-button").addEventListener("click", () => {
+    if (currentUser && !busy) $("avatar-file").click();
+});
+
+async function changeAvatar(file) {
+    if (!currentUser || busy) return;
+    const userId = currentUser.id;
+    const epoch = accountEpoch;
+    const controls = [$("avatar-upload-button"), $("avatar-remove-button")];
+    controls.forEach(control => control.disabled = true);
+    accountMessage("profile-message", file ? "Profilbild wird hochgeladen ..." : "Profilbild wird entfernt ...");
+    let newPath = null;
+    let cleanupFailed = false;
+    try {
+        const saved = await saveOperation(async id => {
+            const oldPath = settings.avatar_path;
+            if (file) {
+                const blob = await resizeAvatar(file);
+                if (!isActiveAccount(id, epoch)) throw new Error("Benutzer gewechselt.");
+                newPath = `${id}/${crypto.randomUUID()}.jpg`;
+                await result(supabase.storage.from("avatars").upload(newPath, blob, {
+                    contentType: "image/jpeg", upsert: false, cacheControl: "0"
+                }));
+            }
+            if (!isActiveAccount(id, epoch)) throw new Error("Benutzer gewechselt.");
+            // Erst den neuen Pfad speichern, danach das alte Objekt löschen.
+            await updateUserSettings(id, { avatar_path: newPath });
+            if (isActiveAccount(id, epoch) && ownedAvatarPath(oldPath, id) && oldPath !== newPath) {
+                try {
+                    await result(supabase.storage.from("avatars").remove([oldPath]));
+                } catch {
+                    cleanupFailed = true;
+                }
+            }
+        }, file ? "Profilbild gespeichert." : "Profilbild entfernt.");
+        if (!isActiveAccount(userId, epoch)) return;
+        if (saved) {
+            settings.avatar_path = newPath;
+            renderAccountProfile();
+            accountMessage("profile-message", cleanupFailed
+                ? "Profil aktualisiert. Die alte Datei konnte nicht gelöscht werden."
+                : file ? "Profilbild gespeichert." : "Profilbild entfernt.", cleanupFailed ? "error" : "success");
+        } else {
+            accountMessage("profile-message", "Profilbild konnte nicht aktualisiert werden.", "error");
+        }
+    } finally {
+        controls.forEach(control => control.disabled = false);
+    }
+}
+
+$("avatar-file").addEventListener("change", async event => {
+    const file = event.currentTarget.files[0];
+    event.currentTarget.value = "";
+    if (file) await changeAvatar(file);
+});
+
+$("avatar-remove-button").addEventListener("click", async () => {
+    if (currentUser && !busy && confirm("Möchtest du dein Profilbild entfernen?")) await changeAvatar(null);
+});
+
+// PASSKEYS
+
+async function loadPasskeys() {
+    const userId = currentUser?.id;
+    const epoch = accountEpoch;
+    if (!userId || typeof supabase.auth.passkey?.list !== "function") return;
+    const request = { userId, epoch };
+    passkeyListRequest = request;
+    try {
+        const keys = await result(supabase.auth.passkey.list());
+        if (passkeyListRequest !== request || !isActiveAccount(userId, epoch)) return;
+        const list = $("passkey-list");
+        list.replaceChildren();
+        if (!keys?.length) {
+            list.append(node("p", "entry-meta", "Noch keine Passkeys eingerichtet."));
+            return;
+        }
+        for (const key of keys) {
+            const item = node("div", "passkey-item");
+            const info = node("div");
+            info.append(node("strong", "", key.friendly_name || "Passkey"));
+            if (key.created_at) info.append(node("p", "entry-meta", "Erstellt: " +
+                new Date(key.created_at).toLocaleDateString("de-DE")));
+            item.append(info, actionButton("Umbenennen", "button secondary", () => {
+                if (!isActiveAccount(userId, epoch) || passkeyBusy || busy || passwordBusy) return;
+                const name = prompt("Name des Passkeys", key.friendly_name || "Passkey")?.trim();
+                if (name && name.length <= 120) runPasskeyAction(() =>
+                    supabase.auth.passkey.update({ passkeyId: key.id, friendlyName: name }), "Passkey umbenannt.");
+            }), actionButton("Entfernen", "button danger", () => {
+                if (!isActiveAccount(userId, epoch) || passkeyBusy || busy || passwordBusy) return;
+                if (confirm("Diesen Passkey wirklich entfernen? Die Passwortanmeldung bleibt möglich.")) {
+                    runPasskeyAction(() => supabase.auth.passkey.delete({ passkeyId: key.id }), "Passkey entfernt.");
+                }
+            }));
+            list.append(item);
+        }
+    } catch (error) {
+        if (passkeyListRequest === request && isActiveAccount(userId, epoch)) {
+            accountMessage("passkey-message", "Passkeys konnten nicht geladen werden. " + error.message, "error");
+        }
+    } finally {
+        if (passkeyListRequest === request) passkeyListRequest = null;
+    }
+}
+
+async function runPasskeyAction(operation, message) {
+    if (!currentUser || passkeyBusy || passwordBusy || busy) return;
+    const userId = currentUser.id;
+    const epoch = accountEpoch;
+    passkeyBusy = true;
+    $("passkey-register-button").disabled = true;
+    accountMessage("passkey-message");
+    try {
+        await result(operation());
+        if (!isActiveAccount(userId, epoch)) return;
+        accountMessage("passkey-message", message);
+        await loadPasskeys();
+    } catch (error) {
+        if (isActiveAccount(userId, epoch)) accountMessage("passkey-message", error.message, "error");
+    } finally {
+        passkeyBusy = false;
+        $("passkey-register-button").disabled = !currentUser || !supportsPasskeys();
+    }
+}
+
+$("passkey-details").addEventListener("toggle", () => {
+    if ($("passkey-details").open && currentUser) {
+        if (!supportsPasskeys()) accountMessage("passkey-message", "Passkey-Anmeldung wird auf diesem Gerät oder Browser möglicherweise nicht unterstützt.", "error");
+        loadPasskeys();
+    }
+});
+
+$("passkey-register-button").addEventListener("click", () => {
+    if (!supportsPasskeys()) return;
+    runPasskeyAction(() => supabase.auth.registerPasskey(), "Passkey eingerichtet.");
+});
+
+// PASSWORT ÄNDERN
+
+$("password-form").addEventListener("submit", async event => {
+    event.preventDefault();
+    if (!currentUser || passwordBusy || passkeyBusy || busy) return;
+    const userId = currentUser.id;
+    const epoch = accountEpoch;
+    const currentPassword = $("current-password").value;
+    const password = $("new-password").value;
+    if (!currentPassword || password.length < 8 || password !== $("confirm-password").value || password === currentPassword) {
+        accountMessage("password-message", "Bitte aktuelles Passwort und ein neues, übereinstimmendes Passwort mit mindestens 8 Zeichen eingeben.", "error");
+        return;
+    }
+    const form = event.currentTarget;
+    const controls = Array.from(form.elements);
+    passwordBusy = true;
+    controls.forEach(control => control.disabled = true);
+    accountMessage("password-message");
+    try {
+        await result(supabase.auth.updateUser({ password, current_password: currentPassword }));
+        if (isActiveAccount(userId, epoch)) {
+            form.reset();
+            accountMessage("password-message", "Passwort erfolgreich geändert.");
+        }
+    } catch (error) {
+        if (isActiveAccount(userId, epoch)) accountMessage("password-message", "Passwortänderung fehlgeschlagen. " + error.message, "error");
+    } finally {
+        passwordBusy = false;
+        controls.forEach(control => control.disabled = false);
+    }
+});
+
+
+// ==========================================
+// 22. INITIALISIERUNG
 // ==========================================
 
 resetEntryForm();
@@ -2810,3 +3243,4 @@ resetEntryForm();
 renderAll();
 
 applyTheme("system");
+setLoginBusy(false);
