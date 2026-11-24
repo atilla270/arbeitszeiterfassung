@@ -27,7 +27,8 @@ const defaults = {
     currency: "EUR",
     work_days: [5, 6],
     default_break_minutes: 0,
-    theme: "system"
+    theme: "system",
+    glass_style: "solid"
 };
 
 let currentUser = null;
@@ -44,6 +45,7 @@ let selectedDay = null;
 let settingsDirty = false;
 let busy = false;
 let refreshPromise = null;
+let pendingGlassStyle = null;
 
 let messageTimeout;
 
@@ -337,6 +339,7 @@ async function activateUser(user) {
 
         selectedDay = null;
         settingsDirty = false;
+        applyGlassStyle(defaults.glass_style);
 
         $("login-screen").hidden = false;
         $("app").hidden = true;
@@ -1844,7 +1847,26 @@ function applyTheme(theme) {
 
 }
 
+function applyGlassStyle(value) {
+
+    const glassStyle = value === "glass" ? "glass" : "solid";
+
+    document.documentElement.dataset.glassStyle = glassStyle;
+
+    document.querySelectorAll('input[name="glass-style"]')
+        .forEach(radio => {
+            radio.checked = radio.value === glassStyle;
+        });
+
+}
+
 function renderSettings() {
+
+    applyGlassStyle(
+        pendingGlassStyle?.userId === currentUser?.id && pendingGlassStyle
+            ? pendingGlassStyle.value
+            : settings.glass_style
+    );
 
     if (settingsDirty) return;
 
@@ -1963,6 +1985,60 @@ $("quick-theme")?.addEventListener(
 
     }
 );
+
+// OBERFLÄCHENDESIGN AUTOMATISCH SPEICHERN
+
+document.querySelectorAll('input[name="glass-style"]')
+    .forEach(radio => {
+
+        radio.addEventListener("change", async event => {
+
+            const glassStyle = event.currentTarget.value;
+            const userId = currentUser?.id;
+
+            if (!userId || busy ||
+                !["solid", "glass"].includes(glassStyle)) {
+                applyGlassStyle(settings.glass_style);
+                return;
+            }
+
+            const options = document.querySelectorAll(
+                'input[name="glass-style"]'
+            );
+
+            pendingGlassStyle = { userId, value: glassStyle };
+            options.forEach(option => option.disabled = true);
+            applyGlassStyle(glassStyle);
+
+            try {
+
+                const saved = await saveOperation(
+                    async id => {
+                        await result(
+                            supabase
+                                .from("user_settings")
+                                .upsert(
+                                    { user_id: id, glass_style: glassStyle },
+                                    { onConflict: "user_id" }
+                                )
+                        );
+                    },
+                    "Oberflächendesign gespeichert."
+                );
+
+                if (saved && currentUser?.id === userId) {
+                    settings.glass_style = glassStyle;
+                }
+
+            } finally {
+                pendingGlassStyle = null;
+                options.forEach(option => option.disabled = false);
+                applyGlassStyle(settings.glass_style);
+            }
+
+        });
+
+    });
 
 $("settings-form").addEventListener(
     "submit",
@@ -2626,7 +2702,12 @@ $("backup-file").addEventListener(
                                     default_break_minutes:
                                         backup.settings.default_break_minutes,
 
-                                    theme: backup.settings.theme
+                                    theme: backup.settings.theme,
+
+                                    glass_style:
+                                        backup.settings.glass_style === "glass"
+                                            ? "glass"
+                                            : "solid"
 
                                 }, {
 
