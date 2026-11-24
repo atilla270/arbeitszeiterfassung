@@ -644,11 +644,12 @@ label {
     font-weight: 600;
 }
 
-
 input:not([type="checkbox"]),
 select,
 textarea {
+    display: block;
     width: 100%;
+    max-width: 100%;
     min-width: 0;
     min-height: 48px;
 
@@ -667,6 +668,16 @@ textarea {
     transition: border-color var(--transition);
 }
 
+input[type="date"],
+input[type="time"] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
 
 input:focus,
 select:focus,
@@ -1411,7 +1422,12 @@ form > .button.primary {
     }
 
     .form-grid {
+        grid-template-columns: minmax(0, 1fr);
         gap: 10px;
+    }
+
+    .form-grid > div {
+        min-width: 0;
     }
 
     .entry-item {
