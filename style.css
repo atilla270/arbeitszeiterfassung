@@ -2350,3 +2350,1024 @@ form > .button.primary {
     }
 
 }
+
+/* ==========================================
+   34. LIQUID GLASS – VARIABLE INTENSITÄT
+   ========================================== */
+
+:root {
+
+    --glass-level: 0.5;
+
+    --glass-fade:
+        clamp(
+            0%,
+            calc(var(--glass-level) * 200%),
+            100%
+        );
+
+    --glass-extra:
+        clamp(
+            0%,
+            calc((var(--glass-level) - 0.5) * 70%),
+            35%
+        );
+
+    --glass-top-base:
+        rgba(255, 255, 255, 0.78);
+
+    --glass-bottom-base:
+        rgba(255, 255, 255, 0.42);
+
+    --glass-nav-base:
+        rgba(255, 255, 255, 0.72);
+
+    --glass-control-base:
+        rgba(255, 255, 255, 0.55);
+
+    --glass-preview-base:
+        rgba(255, 255, 255, 0.45);
+
+}
+
+
+/* DUNKELMODUS */
+
+:root[data-theme="dark"] {
+
+    --glass-top-base:
+        rgba(54, 69, 91, 0.65);
+
+    --glass-bottom-base:
+        rgba(22, 28, 40, 0.55);
+
+    --glass-nav-base:
+        rgba(24, 32, 48, 0.82);
+
+    --glass-control-base:
+        rgba(65, 79, 100, 0.45);
+
+    --glass-preview-base:
+        rgba(65, 79, 100, 0.50);
+
+}
+
+
+/* SYSTEMEINSTELLUNGEN – DUNKEL */
+
+@media (prefers-color-scheme: dark) {
+
+    :root[data-theme="system"],
+    :root:not([data-theme]) {
+
+        --glass-top-base:
+            rgba(54, 69, 91, 0.65);
+
+        --glass-bottom-base:
+            rgba(22, 28, 40, 0.55);
+
+        --glass-nav-base:
+            rgba(24, 32, 48, 0.82);
+
+        --glass-control-base:
+            rgba(65, 79, 100, 0.45);
+
+        --glass-preview-base:
+            rgba(65, 79, 100, 0.50);
+
+    }
+
+}
+
+
+/* STUFENLOSER GLASEFFEKT */
+
+@supports (color: color-mix(in srgb, white, transparent)) {
+
+    :root {
+
+        --adjusted-glass-top:
+            color-mix(
+                in srgb,
+                var(--surface)
+                    calc(100% - var(--glass-fade)),
+                color-mix(
+                    in srgb,
+                    var(--glass-top-base),
+                    transparent var(--glass-extra)
+                )
+            );
+
+        --adjusted-glass-bottom:
+            color-mix(
+                in srgb,
+                var(--surface)
+                    calc(100% - var(--glass-fade)),
+                color-mix(
+                    in srgb,
+                    var(--glass-bottom-base),
+                    transparent var(--glass-extra)
+                )
+            );
+
+        --adjusted-glass-nav:
+            color-mix(
+                in srgb,
+                var(--surface)
+                    calc(100% - var(--glass-fade)),
+                color-mix(
+                    in srgb,
+                    var(--glass-nav-base),
+                    transparent var(--glass-extra)
+                )
+            );
+
+        --adjusted-glass-control:
+            color-mix(
+                in srgb,
+                var(--surface-secondary)
+                    calc(100% - var(--glass-fade)),
+                color-mix(
+                    in srgb,
+                    var(--glass-control-base),
+                    transparent var(--glass-extra)
+                )
+            );
+
+    }
+
+    :root[data-glass-style="glass"] .card,
+    :root[data-glass-style="glass"] .salary-card,
+    :root[data-glass-style="glass"] .login-card {
+
+        background:
+            linear-gradient(
+                145deg,
+                var(--adjusted-glass-top),
+                var(--adjusted-glass-bottom)
+            );
+
+    }
+
+    :root[data-glass-style="glass"] .navigation {
+
+        background:
+            var(--adjusted-glass-nav);
+
+    }
+
+    :root[data-glass-style="glass"] .theme-switch,
+    :root[data-glass-style="glass"] .button.secondary,
+    :root[data-glass-style="glass"] .month-navigation button,
+    :root[data-glass-style="glass"] .year-navigation button,
+    :root[data-glass-style="glass"] #payment-status:not(.paid) {
+
+        background:
+            var(--adjusted-glass-control);
+
+    }
+
+    .preview-glass .preview-salary,
+    .preview-glass .preview-grid > span,
+    .preview-glass .preview-navigation {
+
+        background:
+            color-mix(
+                in srgb,
+                var(--surface)
+                    calc(100% - var(--glass-fade)),
+                color-mix(
+                    in srgb,
+                    var(--glass-preview-base),
+                    transparent var(--glass-extra)
+                )
+            );
+
+    }
+
+}
+
+
+/* ==========================================
+   35. TRANSPARENZ-SCHIEBEREGLER
+   ========================================== */
+
+.glass-intensity-control {
+
+    margin-top: 24px;
+    padding: 18px;
+
+    background: var(--surface-secondary);
+
+    border: 1px solid var(--border);
+    border-radius: 18px;
+
+}
+
+.glass-intensity-heading {
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 12px;
+    margin-bottom: 12px;
+
+}
+
+.glass-intensity-heading label {
+
+    font-size: 14px;
+    font-weight: 650;
+
+}
+
+#glass-intensity-value {
+
+    color: var(--primary);
+
+    font-size: 15px;
+    font-weight: 700;
+
+    font-variant-numeric: tabular-nums;
+
+}
+
+
+/* SCHIEBEREGLER */
+
+#glass-intensity {
+
+    appearance: none;
+    -webkit-appearance: none;
+
+    display: block;
+
+    width: 100%;
+    height: 44px;
+    min-height: 44px;
+
+    margin: 0;
+    padding: 0;
+
+    background: transparent;
+
+    border: none;
+    border-radius: 24px;
+
+    outline: none;
+    box-shadow: none;
+
+    cursor: pointer;
+
+}
+
+#glass-intensity::-webkit-slider-runnable-track {
+
+    height: 8px;
+
+    background:
+        linear-gradient(
+            to right,
+            var(--primary)
+                calc(var(--glass-level) * 100%),
+            var(--border)
+                calc(var(--glass-level) * 100%)
+        );
+
+    border-radius: 20px;
+
+}
+
+#glass-intensity::-webkit-slider-thumb {
+
+    appearance: none;
+    -webkit-appearance: none;
+
+    width: 30px;
+    height: 30px;
+
+    margin-top: -11px;
+
+    background: #ffffff;
+
+    border: 1px solid rgba(0, 0, 0, 0.10);
+    border-radius: 50%;
+
+    box-shadow:
+        0 2px 6px rgba(0, 0, 0, 0.18);
+
+}
+
+#glass-intensity::-moz-range-track {
+
+    height: 8px;
+
+    background: var(--border);
+    border-radius: 20px;
+
+}
+
+#glass-intensity::-moz-range-progress {
+
+    height: 8px;
+
+    background: var(--primary);
+    border-radius: 20px;
+
+}
+
+#glass-intensity::-moz-range-thumb {
+
+    width: 28px;
+    height: 28px;
+
+    background: #ffffff;
+
+    border: 1px solid rgba(0, 0, 0, 0.10);
+    border-radius: 50%;
+
+    box-shadow:
+        0 2px 6px rgba(0, 0, 0, 0.18);
+
+}
+
+#glass-intensity:focus-visible {
+
+    outline: 2px solid var(--primary);
+    outline-offset: 4px;
+
+}
+
+#glass-intensity:disabled {
+
+    opacity: 0.45;
+    cursor: not-allowed;
+
+}
+
+.glass-intensity-labels {
+
+    display: flex;
+    justify-content: space-between;
+
+    margin-top: 2px;
+
+    color: var(--text-secondary);
+
+    font-size: 12px;
+    font-weight: 500;
+
+}
+
+.glass-intensity-control .appearance-description {
+
+    margin-top: 12px;
+    margin-bottom: 0;
+
+}
+
+
+/* GLASDESIGN DES REGLERS */
+
+:root[data-glass-style="glass"] .glass-intensity-control {
+
+    background:
+        var(--adjusted-glass-control, var(--glass-control));
+
+    border-color: var(--glass-border);
+
+}
+
+
+/* ==========================================
+   36. PERSÖNLICHES BENUTZERPROFIL
+   ========================================== */
+
+.account-profile {
+
+    display: flex;
+    align-items: center;
+
+    gap: 18px;
+
+    margin-bottom: 20px;
+    padding: 20px 0;
+
+}
+
+.account-avatar {
+
+    position: relative;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    width: 82px;
+    height: 82px;
+
+    overflow: hidden;
+
+    background:
+        linear-gradient(
+            145deg,
+            #409cff,
+            #0066d6
+        );
+
+    border-radius: 50%;
+
+    box-shadow:
+        0 5px 18px rgba(0, 122, 255, 0.20);
+
+}
+
+#account-initials {
+
+    color: #ffffff;
+
+    font-size: 29px;
+    font-weight: 700;
+
+    letter-spacing: -0.5px;
+
+    user-select: none;
+
+}
+
+#account-avatar-image {
+
+    position: absolute;
+
+    inset: 0;
+
+    display: block;
+
+    width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+    object-position: center;
+
+    border-radius: 50%;
+
+}
+
+.account-identity {
+
+    flex: 1;
+
+    min-width: 0;
+
+}
+
+#account-name {
+
+    margin: 0 0 3px;
+
+    color: var(--text);
+
+    font-size: 21px;
+    font-weight: 750;
+
+    letter-spacing: -0.5px;
+
+    overflow-wrap: anywhere;
+
+}
+
+#account-email {
+
+    color: var(--text-secondary);
+
+    font-size: 13px;
+    font-weight: 400;
+
+    overflow-wrap: anywhere;
+
+}
+
+.account-profile #sync-status {
+
+    margin-top: 7px;
+
+    font-size: 11px;
+
+}
+
+#settings #avatar-upload-button {
+
+    margin-top: 0;
+
+    color: var(--primary);
+
+    text-align: center;
+
+}
+
+#settings #avatar-remove-button {
+
+    margin-top: 8px;
+
+    text-align: center;
+
+}
+
+:root[data-glass-style="glass"] .account-avatar {
+
+    border: 2px solid var(--glass-border);
+
+    box-shadow:
+        inset 0 1px 3px rgba(255, 255, 255, 0.45),
+        0 5px 18px rgba(0, 122, 255, 0.20);
+
+}
+
+
+/* ==========================================
+   37. BENUTZERKONTO UND SICHERHEIT
+   ========================================== */
+
+.account-details {
+
+    margin-top: 16px;
+
+    border: 1px solid var(--border);
+    border-radius: 14px;
+
+    overflow: hidden;
+
+}
+
+.account-details > summary {
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 12px;
+
+    min-height: 50px;
+
+    padding: 14px 16px;
+
+    color: var(--text);
+
+    font-size: 14px;
+    font-weight: 600;
+
+    list-style: none;
+
+    cursor: pointer;
+    user-select: none;
+
+}
+
+.account-details > summary::-webkit-details-marker {
+
+    display: none;
+
+}
+
+.account-details > summary::after {
+
+    content: "";
+
+    flex-shrink: 0;
+
+    width: 8px;
+    height: 8px;
+
+    border-right: 2px solid var(--text-secondary);
+    border-bottom: 2px solid var(--text-secondary);
+
+    transform: rotate(-45deg);
+
+    transition: transform var(--transition);
+
+}
+
+.account-details[open] > summary::after {
+
+    transform: rotate(45deg);
+
+}
+
+.account-details[open] > summary {
+
+    border-bottom: 1px solid var(--border);
+
+}
+
+.account-details > summary:focus-visible {
+
+    outline: 2px solid var(--primary);
+    outline-offset: -3px;
+
+}
+
+.account-details > form {
+
+    padding: 16px;
+
+}
+
+.account-description {
+
+    padding: 16px;
+
+    color: var(--text-secondary);
+
+    font-size: 13px;
+
+}
+
+
+/* FACE ID / PASSKEYS */
+
+#passkey-login-button {
+
+    margin-top: 5px;
+
+    min-height: 48px;
+
+    color: var(--primary);
+
+}
+
+#passkey-register-button {
+
+    display: block;
+
+    width: calc(100% - 32px);
+
+    margin: 0 16px 16px;
+
+    color: var(--primary);
+
+}
+
+#passkey-list {
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 10px;
+
+    padding: 0 16px 16px;
+
+}
+
+#passkey-list:empty {
+
+    display: none;
+
+}
+
+.passkey-item {
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+
+    gap: 10px;
+
+    padding: 12px;
+
+    background: var(--surface-secondary);
+
+    border: 1px solid var(--border);
+    border-radius: 12px;
+
+    font-size: 13px;
+
+    overflow-wrap: anywhere;
+
+}
+
+.passkey-item .button {
+
+    min-height: 44px;
+
+    padding: 8px 12px;
+
+    font-size: 12px;
+
+}
+
+
+/* STATUSMELDUNGEN */
+
+#profile-message,
+#passkey-message,
+#password-message {
+
+    margin: 12px 0 0;
+    padding: 12px;
+
+    background: var(--primary-soft);
+    color: var(--primary);
+
+    border-radius: 10px;
+
+    font-size: 13px;
+
+    overflow-wrap: anywhere;
+
+}
+
+#passkey-message,
+#password-message {
+
+    margin: 0 16px 16px;
+
+}
+
+#profile-message.success,
+#passkey-message.success,
+#password-message.success {
+
+    background: var(--success-soft);
+    color: var(--success);
+
+}
+
+#profile-message.error,
+#passkey-message.error,
+#password-message.error {
+
+    background: var(--danger-soft);
+    color: var(--danger);
+
+}
+
+:root[data-glass-style="glass"] .account-details {
+
+    background:
+        var(--adjusted-glass-control, var(--glass-control));
+
+    border-color: var(--glass-border);
+
+}
+
+
+/* ==========================================
+   38. SCHWEBENDER PLUS-BUTTON
+   ========================================== */
+
+.floating-add-button {
+
+    position: fixed;
+
+    z-index: 1001;
+
+    right:
+        max(
+            24px,
+            calc((100% - 1150px) / 2 + 28px)
+        );
+
+    bottom:
+        calc(24px + env(safe-area-inset-bottom));
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 58px;
+    height: 58px;
+
+    padding: 0;
+
+    background: #007aff;
+    color: #ffffff;
+
+    border: none;
+    border-radius: 50%;
+
+    box-shadow:
+        0 5px 20px rgba(0, 122, 255, 0.30);
+
+    transition:
+        transform var(--transition),
+        background var(--transition),
+        box-shadow var(--transition);
+
+}
+
+.floating-add-button svg {
+
+    width: 28px;
+    height: 28px;
+
+    pointer-events: none;
+
+}
+
+@media (hover: hover) {
+
+    .floating-add-button:hover {
+
+        background: #0066d6;
+
+        transform: translateY(-2px);
+
+        box-shadow:
+            0 8px 25px rgba(0, 122, 255, 0.35);
+
+    }
+
+}
+
+.floating-add-button:active {
+
+    transform: scale(0.92);
+
+}
+
+.app-container {
+
+    padding-bottom: 104px;
+
+}
+
+
+/* LIQUID-GLASS-PLUS-BUTTON */
+
+:root[data-glass-style="glass"] .floating-add-button {
+
+    background:
+        linear-gradient(
+            145deg,
+            #409cff,
+            #0066d6
+        );
+
+    border: 1px solid rgba(255, 255, 255, 0.55);
+
+    box-shadow:
+        inset 0 1px 3px rgba(255, 255, 255, 0.55),
+        inset 0 -1px 3px rgba(255, 255, 255, 0.18),
+        0 6px 24px rgba(0, 122, 255, 0.30);
+
+}
+
+
+/* SMARTPHONE-ANSICHT */
+
+@media (max-width: 600px) {
+
+    .floating-add-button {
+
+        right:
+            max(
+                16px,
+                calc(env(safe-area-inset-right) + 12px)
+            );
+
+        bottom:
+            calc(80px + env(safe-area-inset-bottom));
+
+        width: 56px;
+        height: 56px;
+
+    }
+
+    :root[data-glass-style="glass"] .floating-add-button {
+
+        bottom:
+            calc(92px + env(safe-area-inset-bottom));
+
+    }
+
+    .app-container {
+
+        padding-bottom:
+            calc(164px + env(safe-area-inset-bottom));
+
+    }
+
+    :root[data-glass-style="glass"] .app-container {
+
+        padding-bottom:
+            calc(180px + env(safe-area-inset-bottom));
+
+    }
+
+    .account-profile {
+
+        gap: 14px;
+
+        padding: 12px 0 18px;
+
+    }
+
+    .account-avatar {
+
+        width: 70px;
+        height: 70px;
+
+    }
+
+    #account-initials {
+
+        font-size: 25px;
+
+    }
+
+    #account-name {
+
+        font-size: 19px;
+
+    }
+
+    #account-email {
+
+        font-size: 12px;
+
+    }
+
+    .glass-intensity-control {
+
+        padding: 14px;
+
+    }
+
+}
+
+
+/* ==========================================
+   39. BARRIEREFREIHEIT – TRANSPARENZ
+   ========================================== */
+
+@media (prefers-reduced-transparency: reduce) {
+
+    :root[data-glass-style="glass"] body {
+
+        background: var(--background);
+
+    }
+
+    :root[data-glass-style="glass"] .card,
+    :root[data-glass-style="glass"] .salary-card,
+    :root[data-glass-style="glass"] .login-card,
+    :root[data-glass-style="glass"] .navigation {
+
+        background: var(--surface);
+
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+
+        border-color: var(--border);
+
+        box-shadow: var(--shadow);
+
+    }
+
+    :root[data-glass-style="glass"] .theme-switch,
+    :root[data-glass-style="glass"] .button.secondary,
+    :root[data-glass-style="glass"] .month-navigation button,
+    :root[data-glass-style="glass"] .year-navigation button,
+    :root[data-glass-style="glass"] .account-details,
+    :root[data-glass-style="glass"] .glass-intensity-control,
+    :root[data-glass-style="glass"] #payment-status:not(.paid) {
+
+        background: var(--surface-secondary);
+
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+
+        border-color: var(--border);
+
+        box-shadow: none;
+
+    }
+
+    :root[data-glass-style="glass"] .nav-item.active {
+
+        background: var(--primary-soft);
+
+        box-shadow: none;
+
+    }
+
+    .preview-glass .preview-salary,
+    .preview-glass .preview-grid > span,
+    .preview-glass .preview-navigation {
+
+        background: var(--surface);
+
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+
+        border-color: var(--border);
+
+        box-shadow: none;
+
+    }
+
+}
