@@ -112,8 +112,18 @@ function errorText(error, fallback = "Ein unerwarteter Fehler ist aufgetreten. B
     if (context === "login" && ["user_not_found", "email_not_confirmed", "user_banned"].includes(code)) {
         return "Die E-Mail-Adresse oder das Passwort ist falsch.";
     }
-    if (context === "password" && message.includes("current password") &&
-        /incorrect|invalid|wrong|does not match/.test(message)) {
+    
+    if (code === "current_password_required") {
+        return "Bitte gib dein aktuelles Passwort ein.";
+    }
+
+    if (
+        code === "current_password_mismatch" ||
+        code === "current_password_invalid" ||
+        (context === "password" &&
+            message.includes("current password") &&
+            /incorrect|invalid|wrong|does not match/.test(message))
+    ) {
         return "Das aktuelle Passwort ist falsch.";
     }
 
