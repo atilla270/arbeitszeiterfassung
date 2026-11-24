@@ -3307,22 +3307,30 @@ $("passkey-register-button").addEventListener("click", () => {
 
 // PASSWORT ÄNDERN
 
+$("password-form").noValidate = true;
+
+$("password-form").addEventListener("input", () => {
+    accountMessage("password-message");
+});
+
 $("password-form").addEventListener("submit", async event => {
     event.preventDefault();
     if (!currentUser || passwordBusy || passkeyBusy || busy) return;
+    accountMessage("password-message");
     const userId = currentUser.id;
     const epoch = accountEpoch;
     const currentPassword = $("current-password").value;
     const password = $("new-password").value;
+    const confirmation = $("confirm-password").value;
     if (!currentPassword) {
         accountMessage("password-message", "Bitte dein aktuelles Passwort eingeben.", "error");
         return;
     }
-    if (password.length < 8) {
+    if (password.length < 8 || confirmation.length < 8) {
         accountMessage("password-message", "Das neue Passwort muss mindestens 8 Zeichen enthalten.", "error");
         return;
     }
-    if (password !== $("confirm-password").value) {
+    if (password !== confirmation) {
         accountMessage("password-message", "Die neuen Passwörter stimmen nicht überein.", "error");
         return;
     }
