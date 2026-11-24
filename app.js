@@ -3424,8 +3424,14 @@ function initPasswordVisibility() {
         });
     }
 
-    for (const id of ["login-form", "password-form"]) {
-        const form = $(id);
+     for (const id of ["login-form", "password-form"]) {
+     const form = $(id);
+     form.addEventListener("click", event => {
+     if (event.target.closest('button[type="submit"]')) {
+                hidePasswordFields(form);
+     }
+        }, true);
+        form.addEventListener("invalid", () => hidePasswordFields(form), true);
         form.addEventListener("submit", () => hidePasswordFields(form), true);
         form.addEventListener("reset", () => hidePasswordFields(form), true);
     }
