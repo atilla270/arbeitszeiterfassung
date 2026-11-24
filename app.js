@@ -3330,8 +3330,16 @@ $("password-form").addEventListener("submit", async event => {
         accountMessage("password-message", "Bitte dein aktuelles Passwort eingeben.", "error");
         return;
     }
-    if (password.length < 8 || confirmation.length < 8) {
+        if (password.length < 8 && confirmation.length < 8) {
+        accountMessage("password-message", "Die beiden neuen Passwörter müssen mindestens 8 Zeichen enthalten.", "error");
+        return;
+    }
+    if (password.length < 8) {
         accountMessage("password-message", "Das neue Passwort muss mindestens 8 Zeichen enthalten.", "error");
+        return;
+    }
+    if (confirmation.length < 8) {
+        accountMessage("password-message", "Die Passwortwiederholung muss mindestens 8 Zeichen enthalten.", "error");
         return;
     }
     if (password !== confirmation) {
