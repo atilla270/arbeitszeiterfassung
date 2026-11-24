@@ -1691,3 +1691,662 @@ form > .button.primary {
     }
 
 }
+
+/* ==========================================
+   24. OBERFLÄCHENDESIGN – EINSTELLUNGEN
+   ========================================== */
+
+.appearance-description {
+    margin-bottom: 20px;
+
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.glass-style-options {
+    display: grid;
+
+    grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+
+    gap: 16px;
+}
+
+.glass-style-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    min-width: 0;
+
+    gap: 12px;
+    padding: 10px;
+
+    border: 2px solid var(--border);
+    border-radius: 18px;
+
+    cursor: pointer;
+
+    transition: all var(--transition);
+}
+
+.glass-style-option:has(input:checked) {
+    border-color: var(--primary);
+    background: var(--primary-soft);
+}
+
+.glass-style-option:focus-within {
+    outline: 2px solid var(--primary);
+    outline-offset: 3px;
+}
+
+.design-name {
+    font-size: 14px;
+    font-weight: 650;
+    text-align: center;
+}
+
+.glass-style-option input[type="radio"] {
+    appearance: auto;
+    -webkit-appearance: auto;
+
+    width: 20px;
+    height: 20px;
+
+    min-height: 0;
+
+    margin: 0;
+    padding: 0;
+
+    accent-color: var(--primary);
+
+    cursor: pointer;
+}
+
+
+/* ==========================================
+   25. DESIGNVORSCHAU IN DEN EINSTELLUNGEN
+   ========================================== */
+
+.design-preview {
+    position: relative;
+
+    display: flex;
+    flex-direction: column;
+
+    width: 100%;
+    max-width: 210px;
+
+    aspect-ratio: 3 / 4;
+
+    gap: 8px;
+    padding: 12px;
+
+    overflow: hidden;
+
+    border: 1px solid var(--border);
+    border-radius: 16px;
+}
+
+.preview-solid {
+    --preview-surface: var(--surface);
+    --preview-border: var(--border);
+
+    background: var(--background);
+}
+
+.preview-glass {
+    --preview-surface: rgba(255, 255, 255, 0.45);
+    --preview-border: rgba(255, 255, 255, 0.85);
+
+    background:
+        radial-gradient(
+            ellipse at top right,
+            #a4c7fa,
+            transparent 70%
+        ),
+        linear-gradient(
+            145deg,
+            #edf5ff,
+            #b9d5f2
+        );
+}
+
+.preview-header {
+    display: block;
+
+    width: 75%;
+    height: 9px;
+
+    margin-bottom: 4px;
+
+    background: var(--text-secondary);
+
+    border-radius: 5px;
+}
+
+.preview-salary {
+    display: block;
+
+    min-height: 35px;
+    flex: 1.2;
+
+    background: var(--preview-surface);
+
+    border: 1px solid var(--preview-border);
+    border-radius: 12px;
+}
+
+.preview-salary::before {
+    content: "";
+
+    display: block;
+
+    width: 55%;
+    height: 9px;
+
+    margin: 12px 8px;
+
+    background: var(--success);
+
+    border-radius: 5px;
+}
+
+.preview-grid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+
+    grid-template-rows:
+        repeat(2, minmax(0, 1fr));
+
+    flex: 2;
+
+    gap: 6px;
+}
+
+.preview-grid > span {
+    display: block;
+
+    background: var(--preview-surface);
+
+    border: 1px solid var(--preview-border);
+    border-radius: 9px;
+}
+
+.preview-navigation {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+
+    min-height: 24px;
+
+    padding: 5px;
+
+    background: var(--preview-surface);
+
+    border: 1px solid var(--preview-border);
+    border-radius: 5px;
+}
+
+.preview-navigation > span {
+    display: block;
+
+    width: 8px;
+    height: 8px;
+
+    background: var(--text-secondary);
+
+    border-radius: 50%;
+}
+
+.preview-navigation > span:first-child {
+    background: var(--primary);
+}
+
+.preview-glass .preview-navigation {
+    border-radius: 20px;
+}
+
+.preview-glass .preview-salary,
+.preview-glass .preview-grid > span,
+.preview-glass .preview-navigation {
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+
+    box-shadow:
+        inset 0 1px 2px rgba(255, 255, 255, 0.6),
+        0 3px 8px rgba(31, 65, 110, 0.08);
+}
+
+
+/* ==========================================
+   26. LIQUID GLASS – HELLMODUS
+   ========================================== */
+
+:root[data-glass-style="glass"] {
+
+    --glass-background:
+        radial-gradient(
+            ellipse at 100% 0%,
+            #a8cafa 0%,
+            transparent 48%
+        ),
+        radial-gradient(
+            ellipse at 0% 90%,
+            #c6e5f5 0%,
+            transparent 55%
+        ),
+        linear-gradient(
+            145deg,
+            #edf4ff,
+            #dce7f8 55%,
+            #bcd5ef
+        );
+
+    --glass-surface:
+        linear-gradient(
+            145deg,
+            rgba(255, 255, 255, 0.78),
+            rgba(255, 255, 255, 0.42)
+        );
+
+    --glass-navigation:
+        rgba(255, 255, 255, 0.72);
+
+    --glass-control:
+        rgba(255, 255, 255, 0.55);
+
+    --glass-border:
+        rgba(255, 255, 255, 0.85);
+
+    --glass-highlight:
+        rgba(255, 255, 255, 0.85);
+
+    --glass-shadow:
+        0 8px 30px rgba(40, 75, 120, 0.10);
+
+    --glass-active:
+        linear-gradient(
+            145deg,
+            rgba(255, 255, 255, 0.65),
+            rgba(0, 122, 255, 0.20)
+        );
+
+}
+
+
+/* ==========================================
+   27. LIQUID GLASS – DUNKELMODUS
+   ========================================== */
+
+:root[data-glass-style="glass"][data-theme="dark"] {
+
+    --glass-background:
+        radial-gradient(
+            ellipse at 100% 0%,
+            #243b62,
+            transparent 50%
+        ),
+        radial-gradient(
+            ellipse at 0% 100%,
+            #172e49,
+            transparent 55%
+        ),
+        linear-gradient(
+            145deg,
+            #101012,
+            #101a2b
+        );
+
+    --glass-surface:
+        linear-gradient(
+            145deg,
+            rgba(54, 69, 91, 0.65),
+            rgba(22, 28, 40, 0.55)
+        );
+
+    --glass-navigation:
+        rgba(24, 32, 48, 0.82);
+
+    --glass-control:
+        rgba(65, 79, 100, 0.45);
+
+    --glass-border:
+        rgba(255, 255, 255, 0.18);
+
+    --glass-highlight:
+        rgba(255, 255, 255, 0.16);
+
+    --glass-shadow:
+        0 8px 30px rgba(0, 0, 0, 0.25);
+
+    --glass-active:
+        linear-gradient(
+            145deg,
+            rgba(70, 150, 255, 0.25),
+            rgba(10, 132, 255, 0.12)
+        );
+
+}
+
+
+/* SYSTEMEINSTELLUNGEN – DUNKEL */
+
+@media (prefers-color-scheme: dark) {
+
+    :root[data-glass-style="glass"][data-theme="system"],
+    :root[data-glass-style="glass"]:not([data-theme]) {
+
+        --glass-background:
+            radial-gradient(
+                ellipse at 100% 0%,
+                #243b62,
+                transparent 50%
+            ),
+            radial-gradient(
+                ellipse at 0% 100%,
+                #172e49,
+                transparent 55%
+            ),
+            linear-gradient(
+                145deg,
+                #101012,
+                #101a2b
+            );
+
+        --glass-surface:
+            linear-gradient(
+                145deg,
+                rgba(54, 69, 91, 0.65),
+                rgba(22, 28, 40, 0.55)
+            );
+
+        --glass-navigation:
+            rgba(24, 32, 48, 0.82);
+
+        --glass-control:
+            rgba(65, 79, 100, 0.45);
+
+        --glass-border:
+            rgba(255, 255, 255, 0.18);
+
+        --glass-highlight:
+            rgba(255, 255, 255, 0.16);
+
+        --glass-shadow:
+            0 8px 30px rgba(0, 0, 0, 0.25);
+
+        --glass-active:
+            linear-gradient(
+                145deg,
+                rgba(70, 150, 255, 0.25),
+                rgba(10, 132, 255, 0.12)
+            );
+
+    }
+
+}
+
+
+/* DUNKLE DESIGNVORSCHAU */
+
+:root[data-theme="dark"] .preview-glass {
+
+    --preview-surface:
+        rgba(65, 79, 100, 0.50);
+
+    --preview-border:
+        rgba(255, 255, 255, 0.20);
+
+    background:
+        linear-gradient(
+            145deg,
+            #101827,
+            #294568
+        );
+}
+
+@media (prefers-color-scheme: dark) {
+
+    :root[data-theme="system"] .preview-glass,
+    :root:not([data-theme]) .preview-glass {
+
+        --preview-surface:
+            rgba(65, 79, 100, 0.50);
+
+        --preview-border:
+            rgba(255, 255, 255, 0.20);
+
+        background:
+            linear-gradient(
+                145deg,
+                #101827,
+                #294568
+            );
+
+    }
+
+}
+
+
+/* ==========================================
+   28. LIQUID GLASS – HINTERGRUND
+   ========================================== */
+
+:root[data-glass-style="glass"] body {
+
+    background: var(--glass-background);
+
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    background-size: cover;
+
+}
+
+
+/* ==========================================
+   29. LIQUID GLASS – KARTEN
+   ========================================== */
+
+:root[data-glass-style="glass"] .card,
+:root[data-glass-style="glass"] .salary-card,
+:root[data-glass-style="glass"] .login-card {
+
+    background: var(--glass-surface);
+
+    -webkit-backdrop-filter:
+        blur(20px) saturate(145%);
+
+    backdrop-filter:
+        blur(20px) saturate(145%);
+
+    border: 1px solid var(--glass-border);
+
+    box-shadow:
+        inset 0 1px 1px var(--glass-highlight),
+        inset 0 -1px 1px var(--glass-border),
+        var(--glass-shadow);
+
+}
+
+:root[data-glass-style="glass"] .card {
+    border-radius: 22px;
+}
+
+:root[data-glass-style="glass"] .salary-card {
+    border-radius: 28px;
+}
+
+:root[data-glass-style="glass"]
+#payment-status:not(.paid) {
+
+    background: var(--glass-control);
+
+    border: 1px solid var(--glass-border);
+
+}
+
+
+/* ==========================================
+   30. LIQUID GLASS – SCHALTFLÄCHEN
+   ========================================== */
+
+:root[data-glass-style="glass"] .theme-switch,
+:root[data-glass-style="glass"] .button.secondary,
+:root[data-glass-style="glass"] .month-navigation button,
+:root[data-glass-style="glass"] .year-navigation button {
+
+    background: var(--glass-control);
+
+    -webkit-backdrop-filter:
+        blur(18px) saturate(150%);
+
+    backdrop-filter:
+        blur(18px) saturate(150%);
+
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+
+    box-shadow:
+        inset 0 1px 2px var(--glass-highlight),
+        0 4px 12px rgba(0, 0, 0, 0.06);
+
+}
+
+:root[data-glass-style="glass"] .button.primary {
+
+    background:
+        linear-gradient(
+            145deg,
+            #409cff,
+            #0066d6
+        );
+
+    border: 1px solid rgba(255, 255, 255, 0.35);
+
+    box-shadow:
+        inset 0 1px 2px rgba(255, 255, 255, 0.45),
+        0 5px 16px rgba(0, 122, 255, 0.20);
+
+}
+
+
+/* ==========================================
+   31. LIQUID GLASS – NAVIGATIONSLEISTE
+   ========================================== */
+
+:root[data-glass-style="glass"] .navigation {
+
+    background: var(--glass-navigation);
+
+    -webkit-backdrop-filter:
+        blur(28px) saturate(180%);
+
+    backdrop-filter:
+        blur(28px) saturate(180%);
+
+    border: 1px solid var(--glass-border);
+    border-radius: 28px;
+
+    box-shadow:
+        inset 0 1px 2px var(--glass-highlight),
+        inset 0 -1px 2px var(--glass-border),
+        var(--glass-shadow);
+
+}
+
+:root[data-glass-style="glass"] .nav-item {
+    border-radius: 22px;
+}
+
+:root[data-glass-style="glass"] .nav-item.active {
+
+    background: var(--glass-active);
+    color: var(--primary);
+
+    box-shadow:
+        inset 0 1px 2px var(--glass-highlight),
+        inset 0 -1px 2px var(--glass-border),
+        0 3px 10px rgba(0, 122, 255, 0.10);
+
+}
+
+
+/* ==========================================
+   32. LIQUID GLASS – SMARTPHONE-ANSICHT
+   ========================================== */
+
+@media (max-width: 600px) {
+
+    :root[data-glass-style="glass"] .navigation {
+
+        left: max(14px, env(safe-area-inset-left));
+
+        right: max(14px, env(safe-area-inset-right));
+
+        bottom:
+            calc(12px + env(safe-area-inset-bottom));
+
+        padding: 6px;
+
+        gap: 3px;
+
+        border-radius: 40px;
+
+    }
+
+    :root[data-glass-style="glass"] .nav-item {
+
+        min-height: 52px;
+
+        padding: 10px 2px;
+
+        border-radius: 30px;
+
+    }
+
+    :root[data-glass-style="glass"] .app-container {
+
+        padding-bottom:
+            calc(120px + env(safe-area-inset-bottom));
+
+    }
+
+    .glass-style-options {
+        gap: 10px;
+    }
+
+    .glass-style-option {
+        padding: 8px;
+    }
+
+    .design-preview {
+        padding: 9px;
+    }
+
+    .design-name {
+        font-size: 13px;
+    }
+
+}
+
+
+/* ==========================================
+   33. BARRIEREFREIHEIT – TRANSPARENZ
+   ========================================== */
+
+@media (prefers-reduced-transparency: reduce) {
+
+    :root[data-glass-style="glass"] {
+
+        --glass-surface: var(--surface);
+        --glass-navigation: var(--surface);
+        --glass-control: var(--surface-secondary);
+        --glass-border: var(--border);
+        --glass-active: var(--primary-soft);
+
+    }
+
+}
