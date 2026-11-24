@@ -1826,6 +1826,9 @@ function applyTheme(theme) {
 
     document.documentElement.dataset.theme = theme;
 
+    const quickTheme = $("quick-theme");
+    if (quickTheme) quickTheme.value = theme;
+
     const dark =
         theme === "dark" ||
         (
@@ -1893,9 +1896,73 @@ matchMedia(
     "(prefers-color-scheme: dark)"
 ).addEventListener("change", () => {
 
-    applyTheme($("theme-selection").value);
+    applyTheme(
+        document.documentElement.dataset.theme || "system"
+    );
 
 });
+
+$("quick-theme")?.addEventListener(
+    "change",
+    async event => {
+
+        const quickTheme = event.currentTarget;
+        const theme = quickTheme.value;
+        const previousTheme =
+            document.documentElement.dataset.theme || settings.theme;
+        const userId = currentUser?.id;
+
+        if (!userId || busy ||
+            !["light", "dark", "system"].includes(theme)) {
+            applyTheme(previousTheme);
+            return;
+        }
+
+        const themeSelection = $("theme-selection");
+        const previousSelection = themeSelection.value;
+
+        quickTheme.disabled = true;
+        themeSelection.disabled = true;
+        themeSelection.value = theme;
+        applyTheme(theme);
+
+        try {
+
+            const saved = await saveOperation(
+                async id => {
+                    await result(
+                        supabase
+                            .from("user_settings")
+                            .upsert(
+                                { user_id: id, theme },
+                                { onConflict: "user_id" }
+                            )
+                    );
+                },
+                "Erscheinungsbild gespeichert."
+            );
+
+            if (currentUser?.id !== userId) return;
+
+            if (saved) {
+                settings.theme = theme;
+                themeSelection.value = theme;
+                applyTheme(theme);
+            } else {
+                const restoredTheme = settingsDirty
+                    ? previousSelection
+                    : settings.theme;
+                themeSelection.value = restoredTheme;
+                applyTheme(restoredTheme);
+            }
+
+        } finally {
+            quickTheme.disabled = false;
+            themeSelection.disabled = false;
+        }
+
+    }
+);
 
 $("settings-form").addEventListener(
     "submit",
