@@ -1,11 +1,11 @@
 // 01. CACHE-KONFIGURATION
 
-const CACHE_NAME = "arbeitszeit-v1";
+const CACHE_NAME = "arbeitszeit-v3";
 
 const APP_FILES = [
     "./",
     "./index.html",
-    "./style.css",
+    "./style.css?v=3",
     "./app.js",
     "./config.js",
     "./manifest.json",
