@@ -419,6 +419,9 @@ function setLoginBusy(value) {
     button.disabled = value;
     button.textContent = value ? "Anmeldung läuft ..." : "Anmelden";
     $("passkey-login-button").disabled = value || !supportsPasskeys();
+    const toggle = $("login-form").querySelector(".password-toggle");
+    if (toggle) toggle.disabled = value;
+    if (value) hidePasswordFields($("login-form"));
 }
 
 $("login-form").addEventListener("submit", async event => {
@@ -485,6 +488,7 @@ async function activateUser(user) {
     $("app").hidden = true;
     $("floating-add-button").hidden = true;
     $("login-password").value = "";
+    hidePasswordFields();
     if (!user) $("login-email").value = "";
     $("app-message").textContent = "";
     clearTimeout(messageTimeout);
@@ -3359,9 +3363,88 @@ $("password-form").addEventListener("submit", async event => {
 
 
 // ==========================================
-// 22. INITIALISIERUNG
+// 22. PASSWORT SICHTBARKEIT
 // ==========================================
 
+function setPasswordVisibility(input, button, visible) {
+    input.type = visible ? "text" : "password";
+    button.setAttribute("aria-pressed", String(visible));
+    button.title = visible ? "Passwort ausblenden" : "Passwort anzeigen";
+    button.querySelector(".password-eye-slash")
+        .toggleAttribute("hidden", !visible);
+}
+
+function hidePasswordFields(container = document) {
+    container.querySelectorAll(".password-field").forEach(wrapper => {
+        const input = wrapper.querySelector("input");
+        const button = wrapper.querySelector(".password-toggle");
+        if (input && button) setPasswordVisibility(input, button, false);
+    });
+}
+
+function initPasswordVisibility() {
+    const fields = [
+        ["login-password", "Passwort"],
+        ["current-password", "Aktuelles Passwort"],
+        ["new-password", "Neues Passwort"],
+        ["confirm-password", "Passwortwiederholung"]
+    ];
+
+    for (const [id, label] of fields) {
+        const input = $(id);
+        if (!input || input.closest(".password-field")) continue;
+
+        const wrapper = node("div", "password-field");
+        const button = node("button", "password-toggle");
+        button.type = "button";
+        button.setAttribute("aria-controls", id);
+        button.setAttribute("aria-label", `${label} anzeigen`);
+
+        input.spellcheck = false;
+        input.setAttribute("autocapitalize", "off");
+        input.setAttribute("autocorrect", "off");
+
+        button.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="1.8"
+                 stroke-linecap="round" stroke-linejoin="round"
+                 aria-hidden="true" focusable="false">
+                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/>
+                <circle cx="12" cy="12" r="3"/>
+                <path class="password-eye-slash" d="M3 3l18 18" hidden/>
+            </svg>`;
+
+        input.before(wrapper);
+        wrapper.append(input, button);
+        setPasswordVisibility(input, button, false);
+
+        button.addEventListener("click", () => {
+            if (input.disabled) return;
+            setPasswordVisibility(input, button, input.type === "password");
+        });
+    }
+
+    for (const id of ["login-form", "password-form"]) {
+        const form = $(id);
+        form.addEventListener("submit", () => hidePasswordFields(form), true);
+        form.addEventListener("reset", () => hidePasswordFields(form), true);
+    }
+
+    $("password-details").addEventListener("toggle", () => {
+        if (!$("password-details").open) hidePasswordFields($("password-form"));
+    });
+
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden) hidePasswordFields();
+    });
+    window.addEventListener("pagehide", () => hidePasswordFields());
+}
+
+initPasswordVisibility();
+
+// ==========================================
+// 23. INITIALISIERUNG
+// ==========================================
 resetEntryForm();
 
 renderAll();
