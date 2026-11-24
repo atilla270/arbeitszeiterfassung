@@ -9,7 +9,7 @@
 
     <title>Arbeitszeiterfassung</title>
 
-    <link rel="stylesheet" href="./style.css?v=4">
+    <link rel="stylesheet" href="./style.css?v=5">
     <link rel="manifest" href="./manifest.json">
     <link rel="apple-touch-icon" href="./icons/icon-192.png">
 </head>
@@ -568,7 +568,102 @@
                     </form>
 
                 </div>
+                <!-- OBERFLÄCHENDESIGN -->
 
+                <div class="card">
+
+                    <h3>Oberflächendesign</h3>
+
+                    <p class="appearance-description">
+                        Wähle das gewünschte Design deiner App.
+                    </p>
+
+                    <div class="glass-style-options"
+                         role="group"
+                         aria-label="Oberflächendesign">
+
+                        <label class="glass-style-option">
+
+                            <span class="design-preview preview-solid"
+                                  aria-hidden="true">
+
+                                <span class="preview-header"></span>
+
+                                <span class="preview-salary"></span>
+
+                                <span class="preview-grid">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </span>
+
+                                <span class="preview-navigation">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </span>
+
+                            </span>
+
+                            <span class="design-name">
+                                Deckend
+                            </span>
+
+                            <input
+                                type="radio"
+                                name="glass-style"
+                                id="glass-style-solid"
+                                value="solid"
+                                checked
+                            >
+
+                        </label>
+
+                        <label class="glass-style-option">
+
+                            <span class="design-preview preview-glass"
+                                  aria-hidden="true">
+
+                                <span class="preview-header"></span>
+
+                                <span class="preview-salary"></span>
+
+                                <span class="preview-grid">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </span>
+
+                                <span class="preview-navigation">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </span>
+
+                            </span>
+
+                            <span class="design-name">
+                                Liquid Glass
+                            </span>
+
+                            <input
+                                type="radio"
+                                name="glass-style"
+                                id="glass-style-liquid"
+                                value="glass"
+                            >
+
+                        </label>
+
+                    </div>
+
+                </div>
                 <div class="card">
 
                     <h3>Datensicherung und Export</h3>
@@ -627,7 +722,7 @@
 
     <!-- 10. JAVASCRIPT EINBINDEN -->
 
-    <script type="module" src="./app.js?v=4"></script>
+    <script type="module" src="./app.js?v=5"></script>
 
 </body>
 </html>
