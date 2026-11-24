@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+    <title>Arbeitszeit</title>
+
+    <link rel="stylesheet" href="./style.css">
+    <link rel="manifest" href="./manifest.json">
+</head>
+
+<body>
+
+    <!-- 01. ANMELDUNG -->
+
+    <section id="login-screen" class="login-screen">
+
+        <div class="login-card">
+
+            <div class="app-logo">AZ</div>
+
+            <h1>Arbeitszeit</h1>
+            <p>Deine persönliche Arbeitszeiterfassung</p>
+
+            <form id="login-form">
+
+                <label for="login-email">E-Mail-Adresse</label>
+                <input
+                    type="email"
+                    id="login-email"
+                    autocomplete="username"
+                    placeholder="E-Mail-Adresse"
+                    required
+                >
+
+                <label for="login-password">Passwort</label>
+                <input
+                    type="password"
+                    id="login-password"
+                    autocomplete="current-password"
+                    placeholder="Passwort"
+                    required
+                >
+
+                <button type="submit" class="button primary">
+                    Anmelden
+                </button>
+
+                <p id="login-message" role="status"></p>
+
+            </form>
+
+        </div>
+
+    </section>
+
+
+    <!-- 02. HAUPTANWENDUNG -->
+
+    <div id="app" class="app-container" hidden>
+
+        <header class="app-header">
+
+            <div>
+                <span class="subtitle">MEIN NEBENJOB</span>
+                <h1>Arbeitszeit</h1>
+            </div>
+
+            <button id="logout-button" class="button secondary">
+                Abmelden
+            </button>
+
+        </header>
+
+
+        <!-- 03. NAVIGATION -->
+
+        <nav class="navigation" aria-label="Hauptnavigation">
+
+            <button data-page="dashboard" class="nav-item active">
+                Übersicht
+            </button>
+
+            <button data-page="entries" class="nav-item">
+                Arbeitszeiten
+            </button>
+
+            <button data-page="calendar" class="nav-item">
+                Kalender
+            </button>
+
+            <button data-page="statistics" class="nav-item">
+                Statistiken
+            </button>
+
+            <button data-page="settings" class="nav-item">
+                Einstellungen
+            </button>
+
+        </nav>
+
+
+        <main class="main-content">
+
+            <p id="app-message" role="status"></p>
+
+
+            <!-- 04. MONATSÜBERSICHT -->
+
+            <section id="dashboard" class="page">
+
+                <div class="page-heading">
+                    <h2>Übersicht</h2>
+                    <p>Deine Arbeitszeit auf einen Blick</p>
+                </div>
+
+                <div class="month-navigation">
+
+                    <button id="previous-month" aria-label="Vorheriger Monat">
+                        &#10094;
+                    </button>
+
+                    <h3 id="current-month">–</h3>
+
+                    <button id="next-month" aria-label="Nächster Monat">
+                        &#10095;
+                    </button>
+
+                </div>
+
+                <div class="salary-card">
+
+                    <span>Voraussichtlicher Bruttolohn</span>
+
+                    <h2 id="monthly-salary">0,00 €</h2>
+
+                    <span id="payment-status">
+                        Noch keine Auszahlung erfasst
+                    </span>
+
+                </div>
+
+                <div class="stats-grid">
+
+                    <div class="card">
+                        <span>Arbeitszeit</span>
+                        <h3 id="monthly-hours">0 Std.</h3>
+                    </div>
+
+                    <div class="card">
+                        <span>Arbeitstage</span>
+                        <h3 id="monthly-days">0</h3>
+                    </div>
+
+                    <div class="card">
+                        <span>Stundenlohn</span>
+                        <h3 id="current-hourly-rate">0,00 €</h3>
+                    </div>
+
+                    <div class="card">
+                        <span>Pausenzeit</span>
+                        <h3 id="monthly-breaks">0 Min.</h3>
+                    </div>
+
+                </div>
+
+                <div class="card">
+
+                    <h3>Letzte Arbeitszeiten</h3>
+
+                    <div id="recent-entries"></div>
+
+                </div>
+
+                <button id="quick-add-button" class="button primary">
+                    + Arbeitszeit hinzufügen
+                </button>
+
+            </section>
+
+
+            <!-- 05. ARBEITSZEITEN ERFASSEN -->
+
+            <section id="entries" class="page" hidden>
+
+                <div class="page-heading">
+                    <h2>Arbeitszeiten</h2>
+                    <p>Erfasse und verwalte deine Schichten</p>
+                </div>
+
+                <div class="card">
+
+                    <h3 id="entry-form-title">Neue Arbeitszeit</h3>
+
+                    <form id="entry-form">
+
+                        <input type="hidden" id="entry-id">
+
+                        <label for="work-date">Datum</label>
+                        <input type="date" id="work-date" required>
+
+                        <div class="form-grid">
+
+                            <div>
+                                <label for="start-time">Arbeitsbeginn</label>
+                                <input type="time" id="start-time" required>
+                            </div>
+
+                            <div>
+                                <label for="end-time">Arbeitsende</label>
+                                <input type="time" id="end-time" required>
+                            </div>
+
+                        </div>
+
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="overnight">
+                            Arbeitsende am nächsten Tag
+                        </label>
+
+                        <label for="break-minutes">Pause in Minuten</label>
+                        <input
+                            type="number"
+                            id="break-minutes"
+                            min="0"
+                            step="1"
+                            value="0"
+                            required
+                        >
+
+                        <label for="entry-hourly-rate">Stundenlohn (€)</label>
+                        <input
+                            type="number"
+                            id="entry-hourly-rate"
+                            min="0"
+                            step="0.01"
+                            required
+                        >
+
+                        <label for="entry-notes">Notizen (optional)</label>
+                        <textarea
+                            id="entry-notes"
+                            rows="3"
+                            placeholder="Notiz zur Schicht"
+                        ></textarea>
+
+                        <div class="calculation-preview">
+
+                            <span>Nettoarbeitszeit</span>
+                            <strong id="calculated-hours">0 Std.</strong>
+
+                            <span>Bruttolohn</span>
+                            <strong id="calculated-salary">0,00 €</strong>
+
+                        </div>
+
+                        <button type="submit" class="button primary">
+                            Arbeitszeit speichern
+                        </button>
+
+                        <button
+                            type="button"
+                            id="cancel-edit"
+                            class="button secondary"
+                            hidden
+                        >
+                            Bearbeitung abbrechen
+                        </button>
+
+                    </form>
+
+                </div>
+
+                <div class="card">
+
+                    <h3>Erfasste Arbeitszeiten</h3>
+
+                    <div id="entries-list"></div>
+
+                </div>
+
+            </section>
+
+
+            <!-- 06. KALENDER -->
+
+            <section id="calendar" class="page" hidden>
+
+                <div class="page-heading">
+                    <h2>Kalender</h2>
+                    <p>Deine Arbeitstage im Überblick</p>
+                </div>
+
+                <div class="card">
+
+                    <div class="month-navigation">
+
+                        <button id="calendar-previous" aria-label="Vorheriger Monat">
+                            &#10094;
+                        </button>
+
+                        <h3 id="calendar-month">–</h3>
+
+                        <button id="calendar-next" aria-label="Nächster Monat">
+                            &#10095;
+                        </button>
+
+                    </div>
+
+                    <div class="calendar-weekdays">
+                        <span>Mo</span>
+                        <span>Di</span>
+                        <span>Mi</span>
+                        <span>Do</span>
+                        <span>Fr</span>
+                        <span>Sa</span>
+                        <span>So</span>
+                    </div>
+
+                    <div id="calendar-grid"></div>
+
+                    <div class="calendar-legend">
+                        <span>Regulärer Arbeitstag</span>
+                        <span>Arbeitszeit erfasst</span>
+                    </div>
+
+                </div>
+
+                <div id="calendar-day-details" class="card"></div>
+
+            </section>
+
+
+            <!-- 07. STATISTIKEN -->
+
+            <section id="statistics" class="page" hidden>
+
+                <div class="page-heading">
+                    <h2>Statistiken</h2>
+                    <p>Deine Jahresauswertung</p>
+                </div>
+
+                <div class="year-navigation">
+
+                    <button id="previous-year" aria-label="Vorheriges Jahr">
+                        &#10094;
+                    </button>
+
+                    <h3 id="statistics-year">–</h3>
+
+                    <button id="next-year" aria-label="Nächstes Jahr">
+                        &#10095;
+                    </button>
+
+                </div>
+
+                <div class="salary-card">
+                    <span>Jahresbruttolohn</span>
+                    <h2 id="yearly-salary">0,00 €</h2>
+                </div>
+
+                <div class="stats-grid">
+
+                    <div class="card">
+                        <span>Arbeitsstunden</span>
+                        <h3 id="yearly-hours">0 Std.</h3>
+                    </div>
+
+                    <div class="card">
+                        <span>Arbeitstage</span>
+                        <h3 id="yearly-days">0</h3>
+                    </div>
+
+                </div>
+
+                <div class="card">
+
+                    <h3>Monatliche Einnahmen</h3>
+
+                    <div id="monthly-chart"></div>
+
+                </div>
+
+                <div class="card">
+
+                    <h3>Lohnauszahlungen</h3>
+
+                    <div id="payments-list"></div>
+
+                </div>
+
+            </section>
+
+
+            <!-- 08. PERSÖNLICHE EINSTELLUNGEN -->
+
+            <section id="settings" class="page" hidden>
+
+                <div class="page-heading">
+                    <h2>Einstellungen</h2>
+                    <p>Personalisiere deine App</p>
+                </div>
+
+                <div class="card">
+
+                    <h3>Arbeitsverhältnis</h3>
+
+                    <form id="settings-form">
+
+                        <label for="settings-hourly-rate">
+                            Regulärer Stundenlohn (€)
+                        </label>
+
+                        <input
+                            type="number"
+                            id="settings-hourly-rate"
+                            min="0"
+                            step="0.01"
+                            required
+                        >
+
+                        <label for="default-break">
+                            Standardpause in Minuten
+                        </label>
+
+                        <input
+                            type="number"
+                            id="default-break"
+                            min="0"
+                            step="1"
+                            required
+                        >
+
+                        <fieldset>
+
+                            <legend>Reguläre Arbeitstage</legend>
+
+                            <div class="weekday-selection">
+
+                                <label>
+                                    <input type="checkbox" name="work-day" value="1">
+                                    Montag
+                                </label>
+
+                                <label>
+                                    <input type="checkbox" name="work-day" value="2">
+                                    Dienstag
+                                </label>
+
+                                <label>
+                                    <input type="checkbox" name="work-day" value="3">
+                                    Mittwoch
+                                </label>
+
+                                <label>
+                                    <input type="checkbox" name="work-day" value="4">
+                                    Donnerstag
+                                </label>
+
+                                <label>
+                                    <input type="checkbox" name="work-day" value="5" checked>
+                                    Freitag
+                                </label>
+
+                                <label>
+                                    <input type="checkbox" name="work-day" value="6" checked>
+                                    Samstag
+                                </label>
+
+                                <label>
+                                    <input type="checkbox" name="work-day" value="7">
+                                    Sonntag
+                                </label>
+
+                            </div>
+
+                        </fieldset>
+
+                        <label for="theme-selection">
+                            Erscheinungsbild
+                        </label>
+
+                        <select id="theme-selection">
+                            <option value="system">Systemeinstellungen</option>
+                            <option value="light">Hell</option>
+                            <option value="dark">Dunkel</option>
+                        </select>
+
+                        <button type="submit" class="button primary">
+                            Einstellungen speichern
+                        </button>
+
+                    </form>
+
+                </div>
+
+                <div class="card">
+
+                    <h3>Datensicherung und Export</h3>
+
+                    <button id="export-csv" class="button secondary">
+                        Arbeitszeiten als CSV exportieren
+                    </button>
+
+                    <button id="export-pdf" class="button secondary">
+                        Arbeitszeitnachweis als PDF
+                    </button>
+
+                    <button id="export-backup" class="button secondary">
+                        Datensicherung erstellen
+                    </button>
+
+                    <button id="import-backup" class="button secondary">
+                        Datensicherung wiederherstellen
+                    </button>
+
+                    <input
+                        type="file"
+                        id="backup-file"
+                        accept=".json,application/json"
+                        hidden
+                    >
+
+                </div>
+
+                <div class="card">
+
+                    <h3>Benutzerkonto</h3>
+
+                    <p id="account-email"></p>
+
+                    <p id="sync-status">Nicht verbunden</p>
+
+                </div>
+
+            </section>
+
+        </main>
+
+
+        <!-- 09. FUSSZEILE -->
+
+        <footer class="app-footer">
+            <p>Arbeitszeit · Version 1.0</p>
+            <p>Persönliche Arbeitszeit- und Lohnerfassung</p>
+        </footer>
+
+    </div>
+
+
+    <!-- 10. JAVASCRIPT EINBINDEN -->
+
+    <script type="module" src="./app.js"></script>
+
+</body>
+</html>
