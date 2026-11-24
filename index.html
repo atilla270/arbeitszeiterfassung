@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
     <title>Arbeitszeiterfassung</title>
@@ -12,11 +13,12 @@
     <link rel="stylesheet" href="./style.css?v=6">
     <link rel="manifest" href="./manifest.json">
     <link rel="apple-touch-icon" href="./icons/icon-192.png">
+    <link rel="icon" type="image/png" href="./icons/icon-192.png">
 </head>
 
 <body>
 
-    <!-- 01. ANMELDUNG -->
+        <!-- 01. ANMELDUNG UND PASSWORT-WIEDERHERSTELLUNG -->
 
     <section id="login-screen" class="login-screen">
 
@@ -25,7 +27,9 @@
             <div class="app-logo">AZ</div>
 
             <h1>Arbeitszeiterfassung</h1>
-            <p>Deine persönliche Arbeitszeiterfassung</p>
+            <p id="login-description">Deine persönliche Arbeitszeiterfassung</p>
+
+            <!-- ANMELDUNG -->
 
             <form id="login-form">
 
@@ -53,6 +57,15 @@
 
                 <button
                     type="button"
+                    id="forgot-password-button"
+                    class="auth-link"
+                    hidden
+                >
+                    Passwort vergessen?
+                </button>
+
+                <button
+                    type="button"
                     id="passkey-login-button"
                     class="button secondary"
                     disabled
@@ -61,6 +74,104 @@
                 </button>
 
                 <p id="login-message" role="status"></p>
+
+            </form>
+
+            <!-- WIEDERHERSTELLUNGSLINK ANFORDERN -->
+
+            <form id="recovery-request-form" aria-labelledby="recovery-request-title" hidden>
+
+                <h2 id="recovery-request-title" class="auth-form-title">
+                    Passwort vergessen?
+                </h2>
+
+                <p class="auth-form-description">
+                    Gib die E-Mail-Adresse deines Benutzerkontos ein.
+                    Wir senden dir einen Link zum Zurücksetzen deines Passworts,
+                    sofern ein entsprechendes Konto vorhanden ist.
+                </p>
+
+                <label for="recovery-email">E-Mail-Adresse</label>
+                <input
+                    type="email"
+                    id="recovery-email"
+                    autocomplete="email"
+                    placeholder="E-Mail-Adresse"
+                    required
+                >
+
+                <button
+                    type="submit"
+                    id="recovery-request-submit"
+                    class="button primary"
+                    disabled
+                >
+                    Wiederherstellungslink anfordern
+                </button>
+
+                <p id="recovery-request-message" class="auth-message" role="status" hidden></p>
+
+                <button
+                    type="button"
+                    id="recovery-back-button"
+                    class="auth-link"
+                >
+                    Zurück zur Anmeldung
+                </button>
+
+            </form>
+
+            <!-- NEUES PASSWORT VERGEBEN -->
+
+            <form id="recovery-reset-form" aria-labelledby="recovery-reset-title" hidden novalidate>
+
+                <h2 id="recovery-reset-title" class="auth-form-title">
+                    Neues Passwort vergeben
+                </h2>
+
+                <p id="recovery-password-hint" class="auth-form-description">
+                    Wähle ein neues Passwort mit mindestens 8 Zeichen.
+                </p>
+
+                <label for="recovery-new-password">Neues Passwort</label>
+                <input
+                    type="password"
+                    id="recovery-new-password"
+                    autocomplete="new-password"
+                    placeholder="Neues Passwort"
+                    aria-describedby="recovery-password-hint"
+                    minlength="8"
+                    required
+                >
+
+                <label for="recovery-confirm-password">Neues Passwort wiederholen</label>
+                <input
+                    type="password"
+                    id="recovery-confirm-password"
+                    autocomplete="new-password"
+                    placeholder="Passwort wiederholen"
+                    minlength="8"
+                    required
+                >
+
+                <button
+                    type="submit"
+                    id="recovery-reset-submit"
+                    class="button primary"
+                    disabled
+                >
+                    Neues Passwort speichern
+                </button>
+
+                <p id="recovery-reset-message" class="auth-message" role="status" hidden></p>
+
+                <button
+                    type="button"
+                    id="recovery-cancel-button"
+                    class="button secondary"
+                >
+                    Wiederherstellung abbrechen
+                </button>
 
             </form>
 
