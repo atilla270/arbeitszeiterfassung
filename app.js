@@ -84,6 +84,100 @@ const monthNames = [
 // 03. HILFSFUNKTIONEN
 // ==========================================
 
+// ==========================================
+// ZENTRALE FEHLERMELDUNGEN
+// ==========================================
+
+class AppError extends Error {}
+
+function errorText(error, fallback = "Ein unerwarteter Fehler ist aufgetreten. Bitte versuche es erneut.", context = "") {
+    if (error instanceof AppError) return error.message;
+
+    const code = String(error?.code ?? "").toLowerCase();
+    const name = String(error?.name ?? "");
+    const message = String(error?.message ?? "").toLowerCase();
+    const status = Number(error?.status ?? error?.statusCode ?? 0);
+
+    // Keine Zugangsdaten, Fehlerobjekte oder Datenbankinhalte protokollieren.
+    console.warn("Anwendungsfehler:", { code, name, status });
+
+    if (code === "same_password" || message.includes("new password should be different")) {
+        return "Das neue Passwort muss sich vom bisherigen Passwort unterscheiden.";
+    }
+    if (code === "invalid_credentials" || message.includes("invalid login credentials")) {
+        return context === "password"
+            ? "Das aktuelle Passwort ist falsch."
+            : "Die E-Mail-Adresse oder das Passwort ist falsch.";
+    }
+    if (context === "login" && ["user_not_found", "email_not_confirmed", "user_banned"].includes(code)) {
+        return "Die E-Mail-Adresse oder das Passwort ist falsch.";
+    }
+    if (context === "password" && message.includes("current password") &&
+        /incorrect|invalid|wrong|does not match/.test(message)) {
+        return "Das aktuelle Passwort ist falsch.";
+    }
+
+    const messages = {
+        weak_password: "Das neue Passwort erfüllt die Sicherheitsanforderungen nicht.",
+        email_not_confirmed: "Die E-Mail-Adresse wurde noch nicht bestätigt.",
+        email_address_invalid: "Bitte eine gültige E-Mail-Adresse eingeben.",
+        signup_disabled: "Die öffentliche Registrierung ist deaktiviert.",
+        session_expired: "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
+        session_not_found: "Deine Sitzung ist nicht mehr gültig. Bitte melde dich erneut an.",
+        refresh_token_not_found: "Bitte melde dich erneut an.",
+        refresh_token_already_used: "Bitte melde dich erneut an.",
+        bad_jwt: "Bitte melde dich erneut an.",
+        invalidjwt: "Bitte melde dich erneut an.",
+        pgrst301: "Bitte melde dich erneut an.",
+        reauthentication_needed: "Bitte melde dich erneut an und versuche es noch einmal.",
+        reauthentication_not_valid: "Die erneute Sicherheitsbestätigung ist fehlgeschlagen.",
+        over_request_rate_limit: "Zu viele Anfragen. Bitte versuche es in einigen Minuten erneut.",
+        request_timeout: "Die Anfrage hat zu lange gedauert. Bitte versuche es erneut.",
+        databasetimeout: "Der Server antwortet zu langsam. Bitte versuche es erneut.",
+        database_timeout: "Der Server antwortet zu langsam. Bitte versuche es erneut.",
+        "42501": "Du hast keine Berechtigung für diese Aktion.",
+        accessdenied: "Du hast keine Berechtigung für diese Aktion.",
+        unauthorized: "Du hast keine Berechtigung für diese Aktion.",
+        "23505": "Ein entsprechender Eintrag ist bereits vorhanden.",
+        "23503": "Der zugehörige Datensatz fehlt oder wird noch benötigt.",
+        "23514": "Die eingegebenen Werte sind ungültig.",
+        "23502": "Eine erforderliche Angabe fehlt.",
+        "22p02": "Eine Eingabe hat ein ungültiges Format.",
+        "22007": "Das Datums- oder Zeitformat ist ungültig.",
+        "22008": "Das Datum oder die Uhrzeit ist ungültig.",
+        nosuchkey: "Die Datei wurde nicht gefunden oder ist nicht zugänglich.",
+        nosuchbucket: "Der Dateispeicher ist nicht verfügbar oder nicht zugänglich.",
+        not_found: "Die Datei oder der Eintrag wurde nicht gefunden oder ist nicht zugänglich.",
+        entitytoolarge: "Die Datei ist zu groß.",
+        invalidmimetype: "Dieses Dateiformat wird nicht unterstützt.",
+        resourcealreadyexists: "Die Datei ist bereits vorhanden.",
+        keyalreadyexists: "Die Datei ist bereits vorhanden.",
+        already_exists: "Die Datei ist bereits vorhanden."
+    };
+    if (Object.hasOwn(messages, code)) return messages[code];
+
+    if (name === "NotAllowedError" || name === "AbortError") {
+        return "Der Vorgang wurde abgebrochen, nicht erlaubt oder hat zu lange gedauert.";
+    }
+    if (name === "InvalidStateError") return "Der Vorgang ist im aktuellen Zustand nicht möglich.";
+    if (name === "NotSupportedError") return "Diese Funktion wird auf diesem Gerät oder Browser nicht unterstützt.";
+    if (name === "SecurityError") return "Der Browser hat die Aktion aus Sicherheitsgründen blockiert.";
+    if (name === "AuthSessionMissingError") return "Bitte melde dich erneut an.";
+    if (name === "AuthWeakPasswordError") return "Das Passwort erfüllt die Sicherheitsanforderungen nicht.";
+    if (name === "SyntaxError" && context === "backup") return "Die Datensicherung enthält ungültiges JSON.";
+    if ((typeof navigator !== "undefined" && navigator.onLine === false) ||
+        /failed to fetch|networkerror|network request failed|load failed|fetch failed/.test(message)) {
+        return "Keine Verbindung zum Server möglich. Bitte überprüfe deine Internetverbindung.";
+    }
+    if (status === 429) return "Zu viele Anfragen. Bitte versuche es in einigen Minuten erneut.";
+    if (status === 401) return context === "login" ? fallback : "Bitte melde dich erneut an.";
+    if (status === 403) return "Du hast keine Berechtigung für diese Aktion.";
+    if (status === 413) return "Die Datei ist zu groß.";
+    if (status >= 500) return "Der Server ist momentan nicht erreichbar oder meldet einen Fehler. Bitte versuche es später erneut.";
+
+    return fallback;
+}
+
 function formatMoney(value) {
 
     return Number(value || 0).toLocaleString(
@@ -329,7 +423,7 @@ $("login-form").addEventListener("submit", async event => {
         }));
         $("login-password").value = "";
     } catch (error) {
-        loginMessage("Anmeldung fehlgeschlagen. " + error.message);
+        loginMessage(errorText(error, "Anmeldung fehlgeschlagen. Bitte versuche es erneut.", "login"));
     } finally {
         setLoginBusy(false);
     }
@@ -343,8 +437,8 @@ $("passkey-login-button").addEventListener("click", async () => {
         await result(supabase.auth.signInWithPasskey());
         $("login-password").value = "";
     } catch (error) {
-        loginMessage("Passkey-Anmeldung fehlgeschlagen. " +
-            "Du kannst dich weiterhin mit deinem Passwort anmelden. " + error.message);
+        loginMessage(errorText(error, "Passkey-Anmeldung fehlgeschlagen.") +
+            " Du kannst dich weiterhin mit deinem Passwort anmelden.");
     } finally {
         setLoginBusy(false);
     }
@@ -412,7 +506,7 @@ supabase.auth.onAuthStateChange(
 
             activateUser(session?.user || null)
                 .catch(error => {
-                    loginMessage(error.message);
+                    loginMessage(errorText(error, "Benutzerkonto konnte nicht geladen werden."));
                 });
 
         }, 0);
@@ -440,7 +534,7 @@ $("logout-button").addEventListener(
 
         } catch (error) {
 
-            showMessage(error.message, "error");
+            showMessage(errorText(error, "Abmeldung fehlgeschlagen. Bitte versuche es erneut."), "error");
 
         }
 
@@ -571,7 +665,7 @@ async function refreshData(force = false) {
                     "offline"
                 );
 
-                showMessage(error.message, "error");
+                showMessage(errorText(error, "Synchronisierung fehlgeschlagen. Bitte versuche es erneut."), "error");
 
             }
 
@@ -617,7 +711,7 @@ async function saveOperation(operation, message) {
         }
 
         if (!isActiveAccount(userId, epoch)) {
-            throw new Error("Benutzer nicht mehr angemeldet.");
+            throw new AppError("Benutzer nicht mehr angemeldet.");
         }
 
         await operation(userId);
@@ -633,7 +727,7 @@ async function saveOperation(operation, message) {
 
     } catch (error) {
 
-        if (isActiveAccount(userId, epoch)) showMessage(error.message, "error");
+        if (isActiveAccount(userId, epoch)) showMessage(errorText(error, "Speichern fehlgeschlagen. Bitte versuche es erneut."), "error");
 
         return false;
 
@@ -881,7 +975,7 @@ function readEntryForm() {
 
     if (!date || !start || !end) {
 
-        throw new Error(
+        throw new AppError(
             "Bitte Datum, Arbeitsbeginn und Arbeitsende eintragen."
         );
 
@@ -896,7 +990,7 @@ function readEntryForm() {
         $("entry-hourly-rate").value === ""
     ) {
 
-        throw new Error(
+        throw new AppError(
             "Bitte gültige Pausenzeit und Stundenlohn eingeben."
         );
 
@@ -928,7 +1022,7 @@ function readEntryForm() {
         duration <= 0
     ) {
 
-        throw new Error(
+        throw new AppError(
             "Das Arbeitsende muss nach dem Arbeitsbeginn liegen."
         );
 
@@ -936,7 +1030,7 @@ function readEntryForm() {
 
     if (breakMinutes > duration) {
 
-        throw new Error(
+        throw new AppError(
             "Die Pause darf nicht länger als die Arbeitszeit sein."
         );
 
@@ -993,7 +1087,7 @@ $("entry-form").addEventListener(
 
         } catch (error) {
 
-            showMessage(error.message, "error");
+            showMessage(errorText(error), "error");
 
             return;
 
@@ -1041,7 +1135,7 @@ $("entry-form").addEventListener(
 
                     if (!updated.length) {
 
-                        throw new Error(
+                        throw new AppError(
                             "Der Eintrag wurde nicht gefunden."
                         );
 
@@ -2607,7 +2701,7 @@ $("backup-file").addEventListener(
 
             ) {
 
-                throw new Error(
+                throw new AppError(
                     "Diese Datensicherung ist ungültig " +
                     "oder gehört zu einem anderen Benutzerkonto."
                 );
@@ -2758,13 +2852,13 @@ $("backup-file").addEventListener(
 
                     } catch (error) {
 
-                        throw new Error(
+                        throw new AppError(
 
                             "Wiederherstellung möglicherweise " +
 
                             "nur teilweise abgeschlossen: " +
 
-                            error.message
+                            errorText(error, "Bitte prüfe die vorhandenen Daten und versuche es erneut.")
 
                         );
 
@@ -2780,7 +2874,7 @@ $("backup-file").addEventListener(
 
         } catch (error) {
 
-            showMessage(error.message, "error");
+            showMessage(errorText(error, "Datensicherung konnte nicht verarbeitet werden.", "backup"), "error");
 
         } finally {
 
@@ -2986,7 +3080,7 @@ async function loadAvatar(path, userId, epoch) {
         $("account-initials").hidden = true;
     } catch (error) {
         if (avatarRequest === request && isActiveAccount(userId, epoch)) {
-            accountMessage("profile-message", "Profilbild konnte nicht geladen werden. " + error.message, "error");
+            accountMessage("profile-message", "Profilbild konnte nicht geladen werden. " + errorText(error, "Bitte versuche es erneut."), "error");
         }
     } finally {
         if (avatarRequest === request) avatarRequest = null;
@@ -3032,31 +3126,31 @@ $("profile-form").addEventListener("submit", async event => {
 });
 
 async function resizeAvatar(file) {
-    if (file.size > 25 * 1024 * 1024) throw new Error("Bitte ein Bild unter 25 MB auswählen.");
-    if (file.type && !file.type.startsWith("image/")) throw new Error("Bitte eine Bilddatei auswählen.");
+    if (file.size > 25 * 1024 * 1024) throw new AppError("Bitte ein Bild unter 25 MB auswählen.");
+    if (file.type && !file.type.startsWith("image/")) throw new AppError("Bitte eine Bilddatei auswählen.");
     const url = URL.createObjectURL(file);
     const image = new Image();
     try {
         await new Promise((resolve, reject) => {
             image.onload = resolve;
-            image.onerror = () => reject(new Error("Bildformat nicht lesbar. Bitte JPEG, PNG oder WebP verwenden."));
+            image.onerror = () => reject(new AppError("Bildformat nicht lesbar. Bitte JPEG, PNG oder WebP verwenden."));
             image.src = url;
         });
         const size = Math.min(image.naturalWidth, image.naturalHeight);
-        if (!size) throw new Error("Ungültige Bilddatei.");
+        if (!size) throw new AppError("Ungültige Bilddatei.");
         const dimension = Math.min(size, 512);
         const canvas = document.createElement("canvas");
         canvas.width = dimension;
         canvas.height = dimension;
         const context = canvas.getContext("2d");
-        if (!context) throw new Error("Bildverarbeitung nicht verfügbar.");
+        if (!context) throw new AppError("Bildverarbeitung nicht verfügbar.");
         context.fillStyle = "#ffffff";
         context.fillRect(0, 0, dimension, dimension);
         context.drawImage(image, (image.naturalWidth - size) / 2,
             (image.naturalHeight - size) / 2, size, size, 0, 0, dimension, dimension);
         const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.85));
         if (!blob || blob.type !== "image/jpeg" || blob.size > 2 * 1024 * 1024) {
-            throw new Error("Profilbild konnte nicht verkleinert werden.");
+            throw new AppError("Profilbild konnte nicht verkleinert werden.");
         }
         return blob;
     } finally {
@@ -3082,13 +3176,13 @@ async function changeAvatar(file) {
             const oldPath = settings.avatar_path;
             if (file) {
                 const blob = await resizeAvatar(file);
-                if (!isActiveAccount(id, epoch)) throw new Error("Benutzer gewechselt.");
+                if (!isActiveAccount(id, epoch)) throw new AppError("Benutzer gewechselt.");
                 newPath = `${id}/${crypto.randomUUID()}.jpg`;
                 await result(supabase.storage.from("avatars").upload(newPath, blob, {
                     contentType: "image/jpeg", upsert: false, cacheControl: "0"
                 }));
             }
-            if (!isActiveAccount(id, epoch)) throw new Error("Benutzer gewechselt.");
+            if (!isActiveAccount(id, epoch)) throw new AppError("Benutzer gewechselt.");
             // Erst den neuen Pfad speichern, danach das alte Objekt löschen.
             await updateUserSettings(id, { avatar_path: newPath });
             if (isActiveAccount(id, epoch) && ownedAvatarPath(oldPath, id) && oldPath !== newPath) {
@@ -3162,7 +3256,7 @@ async function loadPasskeys() {
         }
     } catch (error) {
         if (passkeyListRequest === request && isActiveAccount(userId, epoch)) {
-            accountMessage("passkey-message", "Passkeys konnten nicht geladen werden. " + error.message, "error");
+            accountMessage("passkey-message", "Passkeys konnten nicht geladen werden. " + errorText(error, "Bitte versuche es erneut."), "error");
         }
     } finally {
         if (passkeyListRequest === request) passkeyListRequest = null;
@@ -3182,7 +3276,7 @@ async function runPasskeyAction(operation, message) {
         accountMessage("passkey-message", message);
         await loadPasskeys();
     } catch (error) {
-        if (isActiveAccount(userId, epoch)) accountMessage("passkey-message", error.message, "error");
+        if (isActiveAccount(userId, epoch)) accountMessage("passkey-message", errorText(error, "Passkey-Vorgang fehlgeschlagen. Bitte versuche es erneut."), "error");
     } finally {
         passkeyBusy = false;
         $("passkey-register-button").disabled = !currentUser || !supportsPasskeys();
@@ -3210,8 +3304,20 @@ $("password-form").addEventListener("submit", async event => {
     const epoch = accountEpoch;
     const currentPassword = $("current-password").value;
     const password = $("new-password").value;
-    if (!currentPassword || password.length < 8 || password !== $("confirm-password").value || password === currentPassword) {
-        accountMessage("password-message", "Bitte aktuelles Passwort und ein neues, übereinstimmendes Passwort mit mindestens 8 Zeichen eingeben.", "error");
+    if (!currentPassword) {
+        accountMessage("password-message", "Bitte dein aktuelles Passwort eingeben.", "error");
+        return;
+    }
+    if (password.length < 8) {
+        accountMessage("password-message", "Das neue Passwort muss mindestens 8 Zeichen enthalten.", "error");
+        return;
+    }
+    if (password !== $("confirm-password").value) {
+        accountMessage("password-message", "Die neuen Passwörter stimmen nicht überein.", "error");
+        return;
+    }
+    if (password === currentPassword) {
+        accountMessage("password-message", "Das neue Passwort muss sich vom bisherigen Passwort unterscheiden.", "error");
         return;
     }
     const form = event.currentTarget;
@@ -3226,7 +3332,7 @@ $("password-form").addEventListener("submit", async event => {
             accountMessage("password-message", "Passwort erfolgreich geändert.");
         }
     } catch (error) {
-        if (isActiveAccount(userId, epoch)) accountMessage("password-message", "Passwortänderung fehlgeschlagen. " + error.message, "error");
+        if (isActiveAccount(userId, epoch)) accountMessage("password-message", errorText(error, "Passwortänderung fehlgeschlagen. Bitte versuche es erneut.", "password"), "error");
     } finally {
         passwordBusy = false;
         controls.forEach(control => control.disabled = false);
