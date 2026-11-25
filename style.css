@@ -3448,3 +3448,115 @@ form > .button.primary {
 .password-field input::-ms-reveal {
     display: none;
 }
+
+/* ==========================================
+   41. PASSWORT-WIEDERHERSTELLUNG
+   ========================================== */
+
+.login-card .auth-link {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+
+    padding: 8px 12px;
+
+    background: transparent;
+    color: var(--primary);
+
+    border: none;
+    border-radius: 10px;
+
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.4;
+
+    transition:
+        color var(--transition),
+        background var(--transition);
+}
+
+@media (hover: hover) {
+
+    .login-card .auth-link:not(:disabled):hover {
+        background: var(--primary-soft);
+        text-decoration: underline;
+    }
+
+}
+
+.login-card .auth-form-title {
+    margin-bottom: 2px;
+
+    color: var(--text);
+
+    font-size: 21px;
+    font-weight: 700;
+    line-height: 1.3;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+
+.login-card .auth-form-description {
+    margin-bottom: 10px;
+
+    color: var(--text-secondary);
+
+    font-size: 14px;
+    line-height: 1.6;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+
+#recovery-request-form,
+#recovery-reset-form {
+    min-width: 0;
+    animation: fade-in 200ms ease;
+}
+
+#recovery-request-message,
+#recovery-reset-message {
+    padding: 12px;
+
+    background: var(--primary-soft);
+    color: var(--primary);
+
+    border-radius: 12px;
+
+    font-size: 13px;
+    line-height: 1.5;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+
+#recovery-request-message.success,
+#recovery-reset-message.success {
+    background: var(--success-soft);
+    color: var(--success);
+}
+
+#recovery-request-message.error,
+#recovery-reset-message.error {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+#recovery-request-submit,
+#recovery-reset-submit,
+#recovery-cancel-button {
+    min-height: 48px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 360px) {
+
+    .login-card .auth-form-title {
+        font-size: 19px;
+    }
+
+    .login-card .auth-form-description {
+        font-size: 13px;
+    }
+
+}
