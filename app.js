@@ -10,9 +10,42 @@ import {
     SUPABASE_PUBLISHABLE_KEY
 } from "./config.js";
 
+const appUrl = new URL("./", import.meta.url);
+const callbackUrl = new URL(window.location.href);
+const callbackParams = new URLSearchParams(callbackUrl.hash.slice(1));
+const recoveryRoute = callbackUrl.searchParams.get("recovery") === "1" ||
+    callbackParams.get("type") === "recovery" ||
+    ["otp_expired", "access_denied"].includes(callbackParams.get("error_code"));
+
+let recoveryCredentials = null;
+if (recoveryRoute) {
+    if (callbackParams.get("type") === "recovery" &&
+        !callbackParams.has("error") && !callbackParams.has("error_code") &&
+        callbackParams.get("access_token") && callbackParams.get("refresh_token")) {
+        recoveryCredentials = {
+            access_token: callbackParams.get("access_token"),
+            refresh_token: callbackParams.get("refresh_token")
+        };
+    }
+    const cleanUrl = new URL(appUrl);
+    cleanUrl.searchParams.set("recovery", "1");
+    history.replaceState(null, "", cleanUrl);
+    callbackUrl.hash = "";
+    callbackUrl.search = "";
+    for (const key of [...callbackParams.keys()]) callbackParams.delete(key);
+}
+
 const supabase = createClient(
     SUPABASE_URL,
-    SUPABASE_PUBLISHABLE_KEY
+    SUPABASE_PUBLISHABLE_KEY,
+    recoveryRoute ? {
+        auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+            detectSessionInUrl: false,
+            storageKey: "arbeitszeit-recovery"
+        }
+    } : { auth: { flowType: "implicit" } }
 );
 
 
@@ -419,6 +452,7 @@ function setLoginBusy(value) {
     button.disabled = value;
     button.textContent = value ? "Anmeldung läuft ..." : "Anmelden";
     $("passkey-login-button").disabled = value || !supportsPasskeys();
+    $("forgot-password-button").disabled = value;
     const toggle = $("login-form").querySelector(".password-toggle");
     if (toggle) toggle.disabled = value;
     if (value) hidePasswordFields($("login-form"));
@@ -426,7 +460,7 @@ function setLoginBusy(value) {
 
 $("login-form").addEventListener("submit", async event => {
     event.preventDefault();
-    if (loginBusy) return;
+    if (loginBusy || recoveryRoute || $("login-form").hidden) return;
     setLoginBusy(true);
     loginMessage("");
     try {
@@ -443,7 +477,7 @@ $("login-form").addEventListener("submit", async event => {
 });
 
 $("passkey-login-button").addEventListener("click", async () => {
-    if (loginBusy || !supportsPasskeys()) return;
+    if (loginBusy || recoveryRoute || $("login-form").hidden || !supportsPasskeys()) return;
     setLoginBusy(true);
     loginMessage("");
     try {
@@ -515,16 +549,15 @@ async function activateUser(user) {
 
 supabase.auth.onAuthStateChange(
     (event, session) => {
+        if (recoveryRoute) return;
 
         setTimeout(() => {
-
+            if (session?.user || currentUser) showAuthView("login");
             activateUser(session?.user || null)
                 .catch(error => {
                     loginMessage(errorText(error, "Benutzerkonto konnte nicht geladen werden."));
                 });
-
         }, 0);
-
     }
 );
 
@@ -3395,7 +3428,9 @@ function initPasswordVisibility() {
         ["login-password", "Passwort"],
         ["current-password", "Aktuelles Passwort"],
         ["new-password", "Neues Passwort"],
-        ["confirm-password", "Passwortwiederholung"]
+        ["confirm-password", "Passwortwiederholung"],
+        ["recovery-new-password", "Neues Passwort"],
+        ["recovery-confirm-password", "Passwortwiederholung"]
     ];
 
     for (const [id, label] of fields) {
@@ -3432,12 +3467,12 @@ function initPasswordVisibility() {
         });
     }
 
-     for (const id of ["login-form", "password-form"]) {
-     const form = $(id);
-     form.addEventListener("click", event => {
-     if (event.target.closest('button[type="submit"]')) {
+         for (const id of ["login-form", "password-form", "recovery-reset-form"]) {
+        const form = $(id);
+        form.addEventListener("click", event => {
+            if (event.target.closest('button[type="submit"]')) {
                 hidePasswordFields(form);
-     }
+            }
         }, true);
         form.addEventListener("invalid", () => hidePasswordFields(form), true);
         form.addEventListener("submit", () => hidePasswordFields(form), true);
@@ -3457,7 +3492,207 @@ function initPasswordVisibility() {
 initPasswordVisibility();
 
 // ==========================================
-// 23. INITIALISIERUNG
+// 23. PASSWORT-WIEDERHERSTELLUNG
+// ==========================================
+
+let recoveryBusy = false;
+let recoveryUserId = null;
+let recoveryFinished = false;
+
+function showAuthView(view) {
+    hidePasswordFields($("login-screen"));
+    $("login-form").hidden = view !== "login";
+    $("recovery-request-form").hidden = view !== "request";
+    $("recovery-reset-form").hidden = view !== "reset";
+    $("login-description").textContent = "Deine persönliche Arbeitszeiterfassung";
+}
+
+function recoveryMessage(id, text = "", type = "success") {
+    const element = $(id);
+    element.textContent = text;
+    element.className = `auth-message ${type}`;
+    element.hidden = !text;
+}
+
+function setRecoveryBusy(value) {
+    recoveryBusy = value;
+    for (const id of ["recovery-request-form", "recovery-reset-form"]) {
+        Array.from($(id).elements).forEach(control => control.disabled = value);
+    }
+    $("recovery-reset-submit").disabled = value || !recoveryUserId || recoveryFinished;
+    for (const control of $("recovery-reset-form").querySelectorAll("input, .password-toggle")) {
+        control.disabled = value || !recoveryUserId || recoveryFinished;
+    }
+    $("recovery-request-submit").textContent = value ? "Bitte warten ..." : "Wiederherstellungslink anfordern";
+    $("recovery-reset-submit").textContent = value ? "Bitte warten ..." : "Neues Passwort speichern";
+}
+
+$("forgot-password-button").addEventListener("click", () => {
+    if (recoveryRoute || loginBusy || recoveryBusy || currentUser) return;
+    $("recovery-email").value = $("login-email").value.trim();
+    $("login-password").value = "";
+    loginMessage("");
+    recoveryMessage("recovery-request-message");
+    showAuthView("request");
+    $("recovery-email").focus();
+});
+
+$("recovery-back-button").addEventListener("click", () => {
+    if (recoveryBusy || recoveryRoute) return;
+    $("login-email").value = $("recovery-email").value.trim();
+    $("recovery-request-form").reset();
+    recoveryMessage("recovery-request-message");
+    showAuthView("login");
+    $("login-email").focus();
+});
+
+$("recovery-email").addEventListener("input", () => recoveryMessage("recovery-request-message"));
+$("recovery-request-form").noValidate = true;
+$("recovery-request-form").addEventListener("submit", async event => {
+    event.preventDefault();
+    if (recoveryRoute || recoveryBusy || loginBusy || currentUser || event.currentTarget.hidden) return;
+    const input = $("recovery-email");
+    input.value = input.value.trim();
+    if (!input.value || !input.validity.valid) {
+        recoveryMessage("recovery-request-message", "Bitte gib eine gültige E-Mail-Adresse ein.", "error");
+        return;
+    }
+    const neutral = "Falls ein Konto mit dieser E-Mail-Adresse existiert, wurde ein Wiederherstellungslink angefordert. Bitte prüfe auch deinen Spam-Ordner.";
+    recoveryMessage("recovery-request-message");
+    setRecoveryBusy(true);
+    try {
+        const redirect = new URL(appUrl);
+        redirect.searchParams.set("recovery", "1");
+        await result(supabase.auth.resetPasswordForEmail(input.value, { redirectTo: redirect.href }));
+        recoveryMessage("recovery-request-message", neutral);
+    } catch (error) {
+        const code = String(error?.code ?? "");
+        if (["user_not_found", "user_banned", "email_not_confirmed", "email_address_not_authorized"].includes(code)) {
+            recoveryMessage("recovery-request-message", neutral);
+        } else {
+            const text = navigator.onLine === false || Number(error?.status) === 429
+                ? errorText(error)
+                : "Die Anfrage konnte nicht verarbeitet werden. Bitte versuche es später erneut.";
+            recoveryMessage("recovery-request-message", text, "error");
+        }
+    } finally {
+        setRecoveryBusy(false);
+    }
+});
+
+async function startRecovery() {
+    showAuthView("reset");
+    $("app").hidden = true;
+    $("floating-add-button").hidden = true;
+    $("login-screen").hidden = false;
+    setRecoveryBusy(true);
+    recoveryMessage("recovery-reset-message", "Wiederherstellungslink wird geprüft ...");
+    const credentials = recoveryCredentials;
+    recoveryCredentials = null;
+    try {
+        if (!credentials) throw new AppError("Dieser Wiederherstellungslink ist ungültig, abgelaufen oder wurde bereits geöffnet. Bitte fordere einen neuen Link an.");
+        const data = await result(supabase.auth.setSession(credentials));
+        const verified = await result(supabase.auth.getUser());
+        if (!data?.session || !verified?.user?.id || verified.user.id !== data.session.user.id) {
+            throw new AppError("Der Wiederherstellungslink konnte nicht bestätigt werden.");
+        }
+        recoveryUserId = verified.user.id;
+        $("login-description").textContent = `Passwort zurücksetzen für ${verified.user.email || "dein Benutzerkonto"}`;
+        recoveryMessage("recovery-reset-message");
+    } catch (error) {
+        recoveryUserId = null;
+        recoveryMessage("recovery-reset-message", error instanceof AppError ? error.message :
+            "Der Wiederherstellungslink konnte nicht bestätigt werden. Bitte überprüfe deine Internetverbindung und fordere bei Bedarf einen neuen Link an.", "error");
+    } finally {
+        setRecoveryBusy(false);
+    }
+}
+
+$("recovery-reset-form").addEventListener("input", () => {
+    if (recoveryUserId && !recoveryFinished) recoveryMessage("recovery-reset-message");
+});
+
+$("recovery-reset-form").addEventListener("submit", async event => {
+    event.preventDefault();
+    if (!recoveryRoute || !recoveryUserId || recoveryBusy || recoveryFinished || event.currentTarget.hidden) return;
+    const password = $("recovery-new-password").value;
+    const confirmation = $("recovery-confirm-password").value;
+    const messageId = "recovery-reset-message";
+    recoveryMessage(messageId);
+    if (password.length < 8 && confirmation.length < 8) {
+        recoveryMessage(messageId, "Die beiden neuen Passwörter müssen mindestens 8 Zeichen enthalten.", "error");
+        return;
+    }
+    if (password.length < 8) {
+        recoveryMessage(messageId, "Das neue Passwort muss mindestens 8 Zeichen enthalten.", "error");
+        return;
+    }
+    if (confirmation.length < 8) {
+        recoveryMessage(messageId, "Die Passwortwiederholung muss mindestens 8 Zeichen enthalten.", "error");
+        return;
+    }
+    if (password !== confirmation) {
+        recoveryMessage(messageId, "Die neuen Passwörter stimmen nicht überein.", "error");
+        return;
+    }
+    setRecoveryBusy(true);
+    hidePasswordFields(event.currentTarget);
+    try {
+        const verified = await result(supabase.auth.getUser());
+        if (verified?.user?.id !== recoveryUserId) {
+            recoveryUserId = null;
+            throw new AppError("Die Wiederherstellungssitzung ist ungültig. Bitte fordere einen neuen Link an.");
+        }
+        const updated = await result(supabase.auth.updateUser({ password }));
+        if (updated?.user?.id !== recoveryUserId) throw new AppError("Die Passwortänderung konnte nicht bestätigt werden.");
+        recoveryFinished = true;
+        recoveryUserId = null;
+        $("recovery-reset-form").reset();
+        let logoutFailed = false;
+        try {
+            await result(supabase.auth.signOut({ scope: "global" }));
+        } catch {
+            logoutFailed = true;
+        }
+        for (const element of $("recovery-reset-form").querySelectorAll("label, .password-field, #recovery-password-hint, #recovery-reset-submit")) {
+            element.hidden = true;
+        }
+        $("recovery-reset-title").textContent = "Passwort geändert";
+        $("recovery-cancel-button").textContent = "Zurück zur Anwendung";
+        recoveryMessage(messageId, logoutFailed
+            ? "Dein Passwort wurde geändert. Die Abmeldung aller Sitzungen konnte nicht bestätigt werden."
+            : "Dein Passwort wurde erfolgreich geändert. Du kannst dich mit deinem neuen Passwort anmelden.", logoutFailed ? "error" : "success");
+    } catch (error) {
+        const code = String(error?.code ?? "");
+        if (["session_expired", "session_not_found", "bad_jwt", "refresh_token_not_found", "current_password_required", "current_password_mismatch"].includes(code) || error?.name === "AuthSessionMissingError") {
+            recoveryUserId = null;
+            $("recovery-reset-form").reset();
+            recoveryMessage(messageId, "Die Wiederherstellungssitzung ist nicht mehr gültig. Bitte fordere einen neuen Link an.", "error");
+        } else {
+            recoveryMessage(messageId, errorText(error, "Das Passwort konnte nicht zurückgesetzt werden. Bitte versuche es erneut."), "error");
+        }
+    } finally {
+        setRecoveryBusy(false);
+    }
+});
+
+$("recovery-cancel-button").addEventListener("click", async () => {
+    if (!recoveryRoute || recoveryBusy) return;
+    if (!recoveryFinished && recoveryUserId && !confirm("Möchtest du die Passwort-Wiederherstellung abbrechen?")) return;
+    setRecoveryBusy(true);
+    $("recovery-reset-form").reset();
+    try {
+        if (!recoveryFinished) await result(supabase.auth.signOut({ scope: "local" }));
+    } catch {
+        // Beim Verlassen wird die ausschließlich temporäre Sitzung verworfen.
+    } finally {
+        recoveryUserId = null;
+        window.location.replace(appUrl.href);
+    }
+});
+
+// ==========================================
+// 24. INITIALISIERUNG
 // ==========================================
 resetEntryForm();
 
@@ -3465,3 +3700,6 @@ renderAll();
 
 applyTheme("system");
 setLoginBusy(false);
+setRecoveryBusy(false);
+$("forgot-password-button").hidden = recoveryRoute;
+if (recoveryRoute) startRecovery();
