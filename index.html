@@ -130,7 +130,7 @@
                 </h2>
 
                 <p id="recovery-password-hint" class="auth-form-description">
-                    Wähle ein neues Passwort mit mindestens 8 Zeichen.
+                    Wähle ein neues Passwort, das alle folgenden Anforderungen erfüllt.
                 </p>
 
                 <label for="recovery-new-password">Neues Passwort</label>
@@ -139,10 +139,18 @@
                     id="recovery-new-password"
                     autocomplete="new-password"
                     placeholder="Neues Passwort"
-                    aria-describedby="recovery-password-hint"
+                    aria-describedby="recovery-password-hint recovery-password-requirements"
                     minlength="8"
                     required
                 >
+
+                <ul id="recovery-password-requirements" class="password-requirements" aria-label="Passwortanforderungen">
+                    <li data-rule="length" class="is-unmet"><span class="password-rule-icon" aria-hidden="true">×</span><span>Mindestens 8 Zeichen</span><span class="password-rule-status"> (nicht erfüllt)</span></li>
+                    <li data-rule="number" class="is-unmet"><span class="password-rule-icon" aria-hidden="true">×</span><span>Mindestens eine Zahl</span><span class="password-rule-status"> (nicht erfüllt)</span></li>
+                    <li data-rule="lowercase" class="is-unmet"><span class="password-rule-icon" aria-hidden="true">×</span><span>Mindestens ein Kleinbuchstabe</span><span class="password-rule-status"> (nicht erfüllt)</span></li>
+                    <li data-rule="uppercase" class="is-unmet"><span class="password-rule-icon" aria-hidden="true">×</span><span>Mindestens ein Großbuchstabe</span><span class="password-rule-status"> (nicht erfüllt)</span></li>
+                    <li data-rule="special" class="is-unmet"><span class="password-rule-icon" aria-hidden="true">×</span><span>Mindestens ein Sonderzeichen</span><span class="password-rule-status"> (nicht erfüllt)</span></li>
+                </ul>
 
                 <label for="recovery-confirm-password">Neues Passwort wiederholen</label>
                 <input
@@ -191,7 +199,7 @@
                 <h1>Arbeitszeiterfassung</h1>
             </div>
 
-            <div class="theme-switch">
+                <button type="button" id="quick-theme" class="theme-switch" value="system" aria-label="Erscheinungsbild wechseln" title="Erscheinungsbild wechseln">
 
                 <svg class="theme-icon theme-light"
                     viewBox="0 0 24 24"
@@ -234,15 +242,7 @@
 
                 </svg>
 
-                <select id="quick-theme" aria-label="Erscheinungsbild">
-
-                    <option value="light">Hell</option>
-                    <option value="dark">Dunkel</option>
-                    <option value="system" selected>Systemeinstellungen</option>
-
-                </select>
-
-            </div>
+                </button>
 
         </header>
 
@@ -1084,9 +1084,18 @@
                                 type="password"
                                 id="new-password"
                                 autocomplete="new-password"
+                                aria-describedby="password-requirements"
                                 minlength="8"
                                 required
                             >
+
+                            <ul id="password-requirements" class="password-requirements" aria-label="Passwortanforderungen">
+                                <li data-rule="length" class="is-unmet"><span class="password-rule-icon" aria-hidden="true">×</span><span>Mindestens 8 Zeichen</span><span class="password-rule-status"> (nicht erfüllt)</span></li>
+                                <li data-rule="number" class="is-unmet"><span class="password-rule-icon" aria-hidden="true">×</span><span>Mindestens eine Zahl</span><span class="password-rule-status"> (nicht erfüllt)</span></li>
+                                <li data-rule="lowercase" class="is-unmet"><span class="password-rule-icon" aria-hidden="true">×</span><span>Mindestens ein Kleinbuchstabe</span><span class="password-rule-status"> (nicht erfüllt)</span></li>
+                                <li data-rule="uppercase" class="is-unmet"><span class="password-rule-icon" aria-hidden="true">×</span><span>Mindestens ein Großbuchstabe</span><span class="password-rule-status"> (nicht erfüllt)</span></li>
+                                <li data-rule="special" class="is-unmet"><span class="password-rule-icon" aria-hidden="true">×</span><span>Mindestens ein Sonderzeichen</span><span class="password-rule-status"> (nicht erfüllt)</span></li>
+                            </ul>
 
                             <label for="confirm-password">
                                 Neues Passwort wiederholen
