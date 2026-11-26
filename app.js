@@ -80,6 +80,10 @@ let statisticsYear = new Date().getFullYear();
 
 let selectedDay = null;
 let settingsDirty = false;
+let themeDirty = false;
+let pendingTheme = null;
+let settingsRealtimeChannel = null;
+let settingsRealtimeTimer = null;
 let busy = false;
 let refreshPromise = null;
 let pendingGlassStyle = null;
@@ -512,6 +516,9 @@ async function activateUser(user) {
     settings = { ...defaults };
     selectedDay = null;
     settingsDirty = false;
+    themeDirty = false;
+    pendingTheme = null;
+    stopSettingsRealtime();
     pendingGlassStyle = null;
     pendingGlassIntensity = null;
     profileDirty = false;
@@ -542,8 +549,9 @@ async function activateUser(user) {
     $("floating-add-button").hidden = false;
     showPage("dashboard");
     await refreshData(true);
-    if (isActiveAccount(user.id, epoch) && !entryFormHasChanges()) {
-        resetEntryForm();
+    if (isActiveAccount(user.id, epoch)) {
+    if (!entryFormHasChanges()) resetEntryForm();
+        startSettingsRealtime(user.id, epoch);
     }
 }
 
@@ -822,6 +830,59 @@ setInterval(() => {
 
 }, 30000);
 
+window.addEventListener("pageshow", () => {
+    if (!document.hidden) refreshData();
+});
+
+// ECHTZEITSYNCHRONISIERUNG DER BENUTZEREINSTELLUNGEN
+
+function stopSettingsRealtime() {
+    clearTimeout(settingsRealtimeTimer);
+    settingsRealtimeTimer = null;
+    const channel = settingsRealtimeChannel;
+    settingsRealtimeChannel = null;
+    if (channel) {
+        supabase.removeChannel(channel).catch(() => {
+            console.warn("Realtime-Kanal konnte nicht vollständig entfernt werden.");
+        });
+    }
+}
+
+function startSettingsRealtime(userId, epoch) {
+    if (recoveryRoute || !isActiveAccount(userId, epoch)) return;
+    stopSettingsRealtime();
+    try {
+        const channel = supabase.channel(`settings-${userId}-${epoch}`);
+        settingsRealtimeChannel = channel;
+        const active = () => settingsRealtimeChannel === channel && isActiveAccount(userId, epoch);
+        const schedule = () => {
+            if (!active() || document.hidden || !navigator.onLine || settingsRealtimeTimer !== null) return;
+            settingsRealtimeTimer = setTimeout(() => {
+                settingsRealtimeTimer = null;
+                if (!active() || document.hidden || !navigator.onLine) return;
+                if (busy || refreshPromise) {
+                    schedule();
+                    return;
+                }
+                refreshData();
+            }, 300);
+        };
+        const filter = { schema: "public", table: "user_settings", filter: `user_id=eq.${userId}` };
+        channel
+            .on("postgres_changes", { ...filter, event: "INSERT" }, schedule)
+            .on("postgres_changes", { ...filter, event: "UPDATE" }, schedule)
+            .subscribe(status => {
+                if (!active()) return;
+                if (status === "SUBSCRIBED") schedule();
+                else if (["CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(status)) {
+                    console.warn("Realtime nicht verbunden; regulärer Datenabgleich bleibt aktiv.");
+                }
+            });
+    } catch {
+        stopSettingsRealtime();
+        console.warn("Realtime konnte nicht gestartet werden; regulärer Datenabgleich bleibt aktiv.");
+    }
+}
 
 // ==========================================
 // 06. NAVIGATION
@@ -2018,62 +2079,39 @@ function applyGlassStyle(value) {
     updateGlassIntensityAvailability();
 }
 
-function renderSettings() {
+function renderTheme() {
+    const selection = $("theme-selection");
+    const theme = pendingTheme?.value ?? (themeDirty ? selection.value : settings.theme);
+    selection.value = theme;
+    applyTheme(theme);
+}
 
+function renderSettings() {
     applyGlassStyle(
         pendingGlassStyle?.userId === currentUser?.id && pendingGlassStyle
-            ? pendingGlassStyle.value
-            : settings.glass_style
+            ? pendingGlassStyle.value : settings.glass_style
     );
-
     applyGlassIntensity(pendingGlassIntensity?.userId === currentUser?.id && pendingGlassIntensity
         ? pendingGlassIntensity.value : settings.glass_intensity);
     renderAccountProfile();
+    renderTheme();
     if (settingsDirty) return;
 
-    $("settings-hourly-rate").value =
-        settings.hourly_rate;
-
-    $("default-break").value =
-        settings.default_break_minutes;
-
-    $("theme-selection").value =
-        settings.theme;
-
-    document.querySelectorAll(
-        'input[name="work-day"]'
-    ).forEach(checkbox => {
-
-        checkbox.checked =
-            settings.work_days.includes(
-                Number(checkbox.value)
-            );
-
+    $("settings-hourly-rate").value = settings.hourly_rate;
+    $("default-break").value = settings.default_break_minutes;
+    document.querySelectorAll('input[name="work-day"]').forEach(checkbox => {
+        checkbox.checked = settings.work_days.includes(Number(checkbox.value));
     });
-
-    applyTheme(settings.theme);
-
 }
 
-$("settings-form").addEventListener(
-    "input",
-    () => {
+$("settings-form").addEventListener("input", event => {
+    if (event.target.id !== "theme-selection") settingsDirty = true;
+});
 
-        settingsDirty = true;
-
-    }
-);
-
-$("theme-selection").addEventListener(
-    "change",
-    event => {
-
-        settingsDirty = true;
-
-        applyTheme(event.target.value);
-
-    }
-);
+$("theme-selection").addEventListener("change", event => {
+    themeDirty = true;
+    applyTheme(event.target.value);
+});
 
 matchMedia(
     "(prefers-color-scheme: dark)"
@@ -2097,32 +2135,27 @@ $("quick-theme")?.addEventListener("click", async event => {
     const theme = currentlyDark ? "light" : "dark";
     const themeSelection = $("theme-selection");
     const previousSelection = themeSelection.value;
+    const pending = { value: theme };
+    pendingTheme = pending;
 
     quickTheme.disabled = true;
     themeSelection.disabled = true;
-    themeSelection.value = theme;
-    applyTheme(theme);
+    renderTheme();
 
     try {
-        const saved = await saveOperation(
-            id => updateUserSettings(id, { theme }),
-            "Erscheinungsbild gespeichert."
-        );
+        const saved = await saveOperation(async id => {
+            await updateUserSettings(id, { theme });
+            if (isActiveAccount(userId, epoch)) settings.theme = theme;
+        }, "Erscheinungsbild gespeichert.");
 
         if (!isActiveAccount(userId, epoch)) return;
-
-        if (saved) {
-            settings.theme = theme;
-            themeSelection.value = theme;
-            applyTheme(theme);
-        } else {
-            const restoredTheme = settingsDirty ? previousSelection : settings.theme;
-            themeSelection.value = restoredTheme;
-            applyTheme(restoredTheme);
-        }
+        if (saved) themeDirty = false;
+        else if (themeDirty) themeSelection.value = previousSelection;
     } finally {
+        if (pendingTheme === pending) pendingTheme = null;
         quickTheme.disabled = false;
         themeSelection.disabled = false;
+        if (isActiveAccount(userId, epoch)) renderTheme();
     }
 });
 
@@ -2180,115 +2213,50 @@ document.querySelectorAll('input[name="glass-style"]')
 
     });
 
-$("settings-form").addEventListener(
-    "submit",
-    async event => {
+$("settings-form").addEventListener("submit", async event => {
+    event.preventDefault();
+    if (!currentUser || busy) return;
 
-        event.preventDefault();
+    const userId = currentUser.id;
+    const epoch = accountEpoch;
+    const newSettings = {
+        hourly_rate: Number($("settings-hourly-rate").value),
+        default_break_minutes: Number($("default-break").value),
+        work_days: Array.from(document.querySelectorAll('input[name="work-day"]:checked'))
+            .map(checkbox => Number(checkbox.value)),
+        currency: "EUR"
+    };
+    if (themeDirty) newSettings.theme = $("theme-selection").value;
 
-        const workDays = Array.from(
-
-            document.querySelectorAll(
-                'input[name="work-day"]:checked'
-            )
-
-        ).map(checkbox => Number(checkbox.value));
-
-        const newSettings = {
-
-            hourly_rate:
-                Number($("settings-hourly-rate").value),
-
-            default_break_minutes:
-                Number($("default-break").value),
-
-            work_days: workDays,
-
-            theme: $("theme-selection").value,
-
-            currency: "EUR"
-
-        };
-
-        if (
-
-            !Number.isFinite(newSettings.hourly_rate) ||
-
-            newSettings.hourly_rate < 0 ||
-
-            !Number.isInteger(
-                newSettings.default_break_minutes
-            ) ||
-
-            newSettings.default_break_minutes < 0
-
-        ) {
-
-            showMessage(
-                "Bitte gültige Einstellungen eingeben.",
-                "error"
-            );
-
-            return;
-
-        }
-
-        const saved = await saveOperation(
-
-            async userId => {
-
-                await result(
-
-                    supabase
-                        .from("user_settings")
-                        .upsert({
-
-                            ...newSettings,
-
-                            user_id: userId
-
-                        }, {
-
-                            onConflict: "user_id"
-
-                        })
-
-                );
-
-            },
-
-            "Einstellungen gespeichert."
-
-        );
-
-        if (saved && currentUser) {
-
-            settings = {
-                ...settings,
-                ...newSettings
-            };
-
-            settingsDirty = false;
-
-            renderAll();
-
-            if (!$("entry-id").value && !entryFormHasChanges()) {
-
-                $("entry-hourly-rate").value =
-                    settings.hourly_rate;
-
-                $("break-minutes").value =
-                    settings.default_break_minutes;
-
-                updateCalculationPreview();
-                entryFormBaseline = entryFormSnapshot();
-
-            }
-
-        }
-
+    if (!Number.isFinite(newSettings.hourly_rate) || newSettings.hourly_rate < 0 ||
+        !Number.isInteger(newSettings.default_break_minutes) || newSettings.default_break_minutes < 0) {
+        showMessage("Bitte gültige Einstellungen eingeben.", "error");
+        return;
     }
-);
+
+    const controls = Array.from(event.currentTarget.elements);
+    controls.forEach(control => control.disabled = true);
+    try {
+        const saved = await saveOperation(async id => {
+            await updateUserSettings(id, newSettings);
+            if (isActiveAccount(userId, epoch)) settings = { ...settings, ...newSettings };
+        }, "Einstellungen gespeichert.");
+
+        if (!saved || !isActiveAccount(userId, epoch)) return;
+        settingsDirty = false;
+        themeDirty = false;
+        renderAll();
+
+        if (!$("entry-id").value && !entryFormHasChanges()) {
+            $("entry-hourly-rate").value = settings.hourly_rate;
+            $("break-minutes").value = settings.default_break_minutes;
+            updateCalculationPreview();
+            entryFormBaseline = entryFormSnapshot();
+        }
+    } finally {
+        controls.forEach(control => control.disabled = false);
+    }
+});
 
 
 // ==========================================
