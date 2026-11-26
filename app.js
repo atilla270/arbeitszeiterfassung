@@ -1993,25 +1993,20 @@ async function editPayment(
 // ==========================================
 
 function applyTheme(theme) {
-
     document.documentElement.dataset.theme = theme;
+    const dark = theme === "dark" ||
+        (theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
 
     const quickTheme = $("quick-theme");
-    if (quickTheme) quickTheme.value = theme;
+    if (quickTheme) {
+        quickTheme.value = theme;
+        const label = dark ? "Zum Hellmodus wechseln" : "Zum Dunkelmodus wechseln";
+        quickTheme.setAttribute("aria-label", label);
+        quickTheme.title = label;
+    }
 
-    const dark =
-        theme === "dark" ||
-        (
-            theme === "system" &&
-            matchMedia(
-                "(prefers-color-scheme: dark)"
-            ).matches
-        );
-
-    document.querySelector(
-        'meta[name="theme-color"]'
-    ).content = dark ? "#101012" : "#f2f2f7";
-
+    document.querySelector('meta[name="theme-color"]').content =
+        dark ? "#101012" : "#f2f2f7";
 }
 
 function applyGlassStyle(value) {
@@ -2090,67 +2085,46 @@ matchMedia(
 
 });
 
-$("quick-theme")?.addEventListener(
-    "change",
-    async event => {
+$("quick-theme")?.addEventListener("click", async event => {
+    const quickTheme = event.currentTarget;
+    const userId = currentUser?.id;
+    const epoch = accountEpoch;
+    if (!userId || busy || quickTheme.disabled) return;
 
-        const quickTheme = event.currentTarget;
-        const theme = quickTheme.value;
-        const previousTheme =
-            document.documentElement.dataset.theme || settings.theme;
-        const userId = currentUser?.id;
+    const previousTheme = document.documentElement.dataset.theme || settings.theme;
+    const currentlyDark = previousTheme === "dark" ||
+        (previousTheme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+    const theme = currentlyDark ? "light" : "dark";
+    const themeSelection = $("theme-selection");
+    const previousSelection = themeSelection.value;
 
-        if (!userId || busy ||
-            !["light", "dark", "system"].includes(theme)) {
-            applyTheme(previousTheme);
-            return;
+    quickTheme.disabled = true;
+    themeSelection.disabled = true;
+    themeSelection.value = theme;
+    applyTheme(theme);
+
+    try {
+        const saved = await saveOperation(
+            id => updateUserSettings(id, { theme }),
+            "Erscheinungsbild gespeichert."
+        );
+
+        if (!isActiveAccount(userId, epoch)) return;
+
+        if (saved) {
+            settings.theme = theme;
+            themeSelection.value = theme;
+            applyTheme(theme);
+        } else {
+            const restoredTheme = settingsDirty ? previousSelection : settings.theme;
+            themeSelection.value = restoredTheme;
+            applyTheme(restoredTheme);
         }
-
-        const themeSelection = $("theme-selection");
-        const previousSelection = themeSelection.value;
-
-        quickTheme.disabled = true;
-        themeSelection.disabled = true;
-        themeSelection.value = theme;
-        applyTheme(theme);
-
-        try {
-
-            const saved = await saveOperation(
-                async id => {
-                    await result(
-                        supabase
-                            .from("user_settings")
-                            .upsert(
-                                { user_id: id, theme },
-                                { onConflict: "user_id" }
-                            )
-                    );
-                },
-                "Erscheinungsbild gespeichert."
-            );
-
-            if (currentUser?.id !== userId) return;
-
-            if (saved) {
-                settings.theme = theme;
-                themeSelection.value = theme;
-                applyTheme(theme);
-            } else {
-                const restoredTheme = settingsDirty
-                    ? previousSelection
-                    : settings.theme;
-                themeSelection.value = restoredTheme;
-                applyTheme(restoredTheme);
-            }
-
-        } finally {
-            quickTheme.disabled = false;
-            themeSelection.disabled = false;
-        }
-
+    } finally {
+        quickTheme.disabled = false;
+        themeSelection.disabled = false;
     }
-);
+});
 
 // OBERFLÄCHENDESIGN AUTOMATISCH SPEICHERN
 
@@ -3363,20 +3337,10 @@ $("password-form").addEventListener("submit", async event => {
         accountMessage("password-message", "Bitte dein aktuelles Passwort eingeben.", "error");
         return;
     }
-        if (password.length < 8 && confirmation.length < 8) {
-        accountMessage("password-message", "Die beiden neuen Passwörter müssen mindestens 8 Zeichen enthalten.", "error");
-        return;
-    }
-    if (password.length < 8) {
-        accountMessage("password-message", "Das neue Passwort muss mindestens 8 Zeichen enthalten.", "error");
-        return;
-    }
-    if (confirmation.length < 8) {
-        accountMessage("password-message", "Die Passwortwiederholung muss mindestens 8 Zeichen enthalten.", "error");
-        return;
-    }
-    if (password !== confirmation) {
-        accountMessage("password-message", "Die neuen Passwörter stimmen nicht überein.", "error");
+    
+    const validationError = newPasswordValidationError(password, confirmation);
+    if (validationError) {
+        accountMessage("password-message", validationError, "error");
         return;
     }
     if (password === currentPassword) {
@@ -3519,7 +3483,9 @@ function setRecoveryBusy(value) {
     for (const id of ["recovery-request-form", "recovery-reset-form"]) {
         Array.from($(id).elements).forEach(control => control.disabled = value);
     }
+    
     $("recovery-reset-submit").disabled = value || !recoveryUserId || recoveryFinished;
+    $("recovery-password-requirements").hidden = !recoveryUserId || recoveryFinished;
     for (const control of $("recovery-reset-form").querySelectorAll("input, .password-toggle")) {
         control.disabled = value || !recoveryUserId || recoveryFinished;
     }
@@ -3619,22 +3585,13 @@ $("recovery-reset-form").addEventListener("submit", async event => {
     const confirmation = $("recovery-confirm-password").value;
     const messageId = "recovery-reset-message";
     recoveryMessage(messageId);
-    if (password.length < 8 && confirmation.length < 8) {
-        recoveryMessage(messageId, "Die beiden neuen Passwörter müssen mindestens 8 Zeichen enthalten.", "error");
+    
+    const validationError = newPasswordValidationError(password, confirmation);
+    if (validationError) {
+        recoveryMessage(messageId, validationError, "error");
         return;
     }
-    if (password.length < 8) {
-        recoveryMessage(messageId, "Das neue Passwort muss mindestens 8 Zeichen enthalten.", "error");
-        return;
-    }
-    if (confirmation.length < 8) {
-        recoveryMessage(messageId, "Die Passwortwiederholung muss mindestens 8 Zeichen enthalten.", "error");
-        return;
-    }
-    if (password !== confirmation) {
-        recoveryMessage(messageId, "Die neuen Passwörter stimmen nicht überein.", "error");
-        return;
-    }
+    
     setRecoveryBusy(true);
     hidePasswordFields(event.currentTarget);
     try {
@@ -3654,7 +3611,7 @@ $("recovery-reset-form").addEventListener("submit", async event => {
         } catch {
             logoutFailed = true;
         }
-        for (const element of $("recovery-reset-form").querySelectorAll("label, .password-field, #recovery-password-hint, #recovery-reset-submit")) {
+        for (const element of $("recovery-reset-form").querySelectorAll("label, .password-field, #recovery-password-hint, #recovery-password-requirements, #recovery-reset-submit")) {
             element.hidden = true;
         }
         $("recovery-reset-title").textContent = "Passwort geändert";
@@ -3692,7 +3649,78 @@ $("recovery-cancel-button").addEventListener("click", async () => {
 });
 
 // ==========================================
-// 24. INITIALISIERUNG
+// 24. LIVE-PASSWORTANFORDERUNGEN
+// ==========================================
+
+function getPasswordRequirements(password) {
+    return {
+        length: Array.from(password).length >= 8,
+        number: /[0-9]/.test(password),
+        lowercase: /[a-z]/.test(password),
+        uppercase: /[A-Z]/.test(password),
+        special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?`~]/.test(password)
+    };
+}
+
+function newPasswordValidationError(password, confirmation) {
+    const requirements = getPasswordRequirements(password);
+    const confirmationTooShort = Array.from(confirmation).length < 8;
+
+    if (!requirements.length && confirmationTooShort) {
+        return "Die beiden neuen Passwörter müssen mindestens 8 Zeichen enthalten.";
+    }
+    if (!requirements.length) {
+        return "Das neue Passwort muss mindestens 8 Zeichen enthalten.";
+    }
+    if (confirmationTooShort) {
+        return "Die Passwortwiederholung muss mindestens 8 Zeichen enthalten.";
+    }
+    if (!Object.values(requirements).every(Boolean)) {
+        return "Das neue Passwort muss alle angezeigten Passwortanforderungen erfüllen.";
+    }
+    if (new TextEncoder().encode(password).length > 72) {
+        return "Das neue Passwort darf maximal 72 UTF-8-Bytes enthalten. Bitte verwende ein kürzeres Passwort.";
+    }
+    if (password !== confirmation) {
+        return "Die neuen Passwörter stimmen nicht überein.";
+    }
+    return "";
+}
+
+function initPasswordRequirements() {
+    const fields = [
+        ["new-password", "password-requirements"],
+        ["recovery-new-password", "recovery-password-requirements"]
+    ];
+
+    for (const [inputId, listId] of fields) {
+        const input = $(inputId);
+        const list = $(listId);
+        const update = () => {
+            const requirements = getPasswordRequirements(input.value);
+            for (const item of list.querySelectorAll("[data-rule]")) {
+                const met = requirements[item.dataset.rule] === true;
+                item.classList.toggle("is-met", met);
+                item.classList.toggle("is-unmet", !met);
+                item.querySelector(".password-rule-icon").textContent = met ? "✓" : "×";
+                item.querySelector(".password-rule-status").textContent = met ? " (erfüllt)" : " (nicht erfüllt)";
+            }
+        };
+        input.addEventListener("input", update);
+        input.addEventListener("change", update);
+        input.addEventListener("focus", update);
+        input.form.addEventListener("submit", update, true);
+        input.form.addEventListener("reset", () => queueMicrotask(update));
+        window.addEventListener("pageshow", update);
+        $("password-details").addEventListener("toggle", update);
+        update();
+    }
+}
+
+initPasswordRequirements();
+
+// ==========================================
+// 25. INITIALISIERUNG
 // ==========================================
 resetEntryForm();
 
